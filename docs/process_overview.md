@@ -4,8 +4,6 @@ This document describes the processing logic of the Past Forward aDNA Pipeline a
 
 ![Pipeline Overview](img/aDNA_pipeline_process.svg)
 
----
-
 ## Module 1 — Raw Read Processing
 
 This module takes raw sequencing data and prepares it for all downstream analyses. It runs on a per-sample basis and produces clean, merged reads ready for mapping.
@@ -51,8 +49,6 @@ The Past Forward aDNA Pipeline supports two contamination detection tools, both 
 **eCMSD** assesses contamination by mapping reads against a curated mitochondrial reference database and reporting the proportional contribution of different taxa. It is enabled via **`tools > ecmsd > execute`**. The path to the eCMSD executable is set with **`tools > ecmsd > settings > executable`** and the conda environment can be customised via **`settings > conda_env`**. Several analysis parameters are configurable: **`settings > Binsize`** (default 1000) controls the read binning resolution, **`settings > RMUS_threshold`** (default 0.15) filters out marginal hits, **`settings > mapping_quality`** (default 20) sets the minimum mapping quality for a read to be considered, and **`settings > taxonomic_hierarchy`** (default `genus`) determines at which taxonomic level results are reported. Results from all samples belonging to the same individual are merged into a combined summary file.
 
 **Centrifuge** performs k-mer-based taxonomic classification against a user-provided database and is enabled via **`tools > centrifuge > execute`**. The **`settings > index`** parameter is required and must point to the full path of the Centrifuge database index prefix. The conda environment can be overridden with **`settings > conda_env`**. Beyond raw classification, the pipeline derives proportional taxon abundance and extracts the top 10 taxa ranked by both total and unique read assignments.
-
----
 
 ## Module 2 — Reference Processing
 
@@ -112,8 +108,6 @@ A set of R-based plots summarise the mapping results visually. Coverage breadth 
 
 All QC outputs for a given individual and reference are aggregated into a single **MultiQC** HTML report. This includes the fastp reports from adapter removal and quality filtering, FastQC of merged reads, contamination analysis outputs, Preseq curves, the Qualimap directory, samtools stats, the custom coverage and reads processing summary tables, the mapDamage2 output directory, and the DeDup JSON summary. Each input type is only requested if its corresponding config toggle is enabled — disabled steps are silently omitted, keeping the report self-consistent.
 
----
-
 ## Module 3 — Dynamics Processing
 
 This module quantifies the relative abundance and activity of transposable elements (TEs) and other genomic features across individuals. It works by mapping reads to a purpose-built reference consisting of TE sequences combined with single-copy genes (SCGs). The SCGs serve as a stable normalisation reference, making TE abundance estimates comparable across individuals regardless of differences in sequencing depth.
@@ -140,8 +134,6 @@ First, the sorted BAM is converted into a site-occupancy profile, using the comb
 
 From the plotable directories, per-individual TE occupancy plots are generated. A second pass combines all individual plotable directories to produce a faceted species-level comparison plot, allowing side-by-side visual comparison of TE dynamics across all individuals simultaneously.
 
----
-
 ## Module 4 — Processing Summary
 
 The summary module consolidates outputs from all three processing modules into cohesive **MultiQC** HTML reports at two levels: a per-individual report covering all QC and analytics for a single individual across all references, and a per-species overall report aggregating all individuals.
@@ -149,8 +141,6 @@ The summary module consolidates outputs from all three processing modules into c
 Custom data preparation scripts transform pipeline outputs — coverage breadth, coverage depth, and reads processing statistics — into TSV files formatted for MultiQC's custom content sections. Reads processing summaries are produced both as absolute values (raw, trimmed, quality-filtered, endogenous, deduplicated counts) and as a stacked representation (non-endogenous, duplicates, retained endogenous reads) suited to stacked bar chart visualisation in MultiQC. Both formats are additionally combined into species-level files for the overall report.
 
 Because Qualimap and mapDamage2 output directories need to be co-located with other MultiQC inputs, they are copied into the summary folder structure before report generation. All inputs to MultiQC are conditionally requested based on which pipeline steps were enabled, so the reports always accurately reflect the steps that were actually run.
-
----
 
 ## Global Configuration and Pipeline Behaviour
 
