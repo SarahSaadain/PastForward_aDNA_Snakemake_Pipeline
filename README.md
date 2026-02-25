@@ -54,7 +54,8 @@ For more information on Snakemake command-line options, see the [Snakemake docum
 Depending on the size of the data, it may take some time to complete the pipeline. Thus it is recommended to run the pipeline in the background. You can do this by running the following command:
 
 ```bash
- ```
+nohup snakemake --cores 40 --use-conda --keep-going --rerun-trigger mtime > pipeline.log 2>&1 &
+```
 
 ### Restarting the Pipeline
 
