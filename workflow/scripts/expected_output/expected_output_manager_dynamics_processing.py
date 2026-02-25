@@ -15,10 +15,10 @@ def get_expected_output_dynamics_processing(species):
         logging.warning(f"No feature libraries defined for {species}. Skipping dynamics processing.")
         return []
     
-    scgs = get_scg_library_ids_for_species(species)
-
-    if not scgs:
-        logging.warning(f"No SCGs provided for {species}. Skipping dynamics processing.")
+    try:
+        scgs = get_scg_library_ids_for_species(species)
+    except Exception as e:
+        logging.warning(f"No SCG libraries defined for {species}. Skipping dynamics processing.")
         return []
     
     # only support 1 scg library
@@ -30,7 +30,8 @@ def get_expected_output_dynamics_processing(species):
     for feature_library in feature_libraries:
 
         if config.get("pipeline", {}).get("dynamics", {}).get("teplotter", {}).get("execute", True) == True:
-            all_inputs.append(f"{species}/results/dynamics/{feature_library}/teplotter/{species}_estimation.combined.tsv")
+            #all_inputs.append(f"{species}/results/dynamics/{feature_library}/teplotter/{species}_estimation.combined.tsv")
+            all_inputs.append(f"{species}/results/dynamics/{feature_library}/teplotter/{species}_plots_facet/")
             for individual in individuals:
                 all_inputs.append(f"{species}/results/dynamics/{feature_library}/teplotter/{individual}_plots/")
     

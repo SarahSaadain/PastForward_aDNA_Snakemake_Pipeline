@@ -4,6 +4,12 @@ This project contains a pipeline to analyze raw ancient data, obtained from the 
 
 Note: This pipeline is still in the final stages of development. It can already be used for analysis but might still be subject to changes.
 
+## Workflow Overview
+
+![Pipeline Overview](img/aDNA_pipeline_process.svg)
+
+For detailed information about the processing steps, see the [Process Overview](docs/process_overview.md).
+
 ## Setup Overview
 
 The PastForward pipeline is implemented using Snakemake, a workflow management system. Snakemake ensures reproducibility and efficient execution of the pipeline. Information about the setup as well as configuration options can be found in the [Setup Instructions](docs/setup.md).

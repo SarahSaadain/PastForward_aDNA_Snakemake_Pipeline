@@ -16,3 +16,4 @@ dependencies:
   - r-readr
   - r-ggpubr
   - r-optparse
+  - r-tidyverse

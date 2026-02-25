@@ -1,5 +1,17 @@
 # Setup Overview
 
+## Install Snakemake
+To install Snakemake, you can use conda, which is a package manager that simplifies the installation of software and its dependencies. You can create a new conda environment for Snakemake and install it using the following commands:
+
+```bash
+conda create -c conda-forge -c bioconda -c nodefaults -n snakemake snakemake
+conda activate snakemake
+snakemake --help
+```
+
+Refer to the [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html) for more installation options and details.
+
+## Setup Instructions
 - Before running the pipeline, ensure you have an environment with Snakemake and the required dependencies installed.
 - Required dependencies for pipeline processing will be installed automatically, except for the contamination analysis tools. Those have to be installed separately and their details need to be added to the config file.
   - The pipeline supports ECMSD for contamination analysis. Ensure ECMSD is configured in the `config.yaml` file under `contamination_analysis`.

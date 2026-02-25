@@ -39,7 +39,7 @@ rule determine_teplotter_of_individual_bam_to_so:
         "../../envs/python.yaml"
     shell:
         """
-        python workflow/scripts/dynamics/teplotter/bam2so.py --infile {input.bam} --fasta {input.fasta} --output-file {output.coverage} 2> {log}
+        python workflow/scripts/dynamics/teplotter/bam2so.py --infile {input.bam} --fasta {input.fasta} --outfile {output.coverage} 2> {log}
         """
 
 rule normalize_teplotter_of_individual:
@@ -51,7 +51,7 @@ rule normalize_teplotter_of_individual:
         "../../envs/python.yaml"
     shell:
         """
-        python workflow/scripts/dynamics/teplotter/normalize-so.py --so {input.coverage} --output-file {output.normalized}
+        python workflow/scripts/dynamics/teplotter/normalize-so.py --so {input.coverage} --outfile {output.normalized}
         """
 
 rule estimate_teplotter_of_individual:
@@ -63,7 +63,7 @@ rule estimate_teplotter_of_individual:
         "../../envs/python.yaml"
     shell:
         """
-        python workflow/scripts/dynamics/teplotter/estimate-so.py --so {input.coverage} --output-file {output.estimation}
+        python workflow/scripts/dynamics/teplotter/estimate-so.py --so {input.coverage} --outfile {output.estimation}
         """
 
 rule prepare_teplotter_visualization_of_individual:
@@ -88,7 +88,7 @@ rule run_teplotter_visualization_of_individual:
     output:
         directory("{species}/results/dynamics/{feature_library}/teplotter/{individual}_plots")
     conda:
-        "../../envs/python.yaml"
+        "../../envs/python_and_r.yaml"
     shell:
         """
         python workflow/scripts/dynamics/teplotter/run_plotable.py --folder {input} --outdir {output}

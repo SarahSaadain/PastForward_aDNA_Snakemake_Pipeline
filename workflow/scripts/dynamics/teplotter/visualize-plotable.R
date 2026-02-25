@@ -1,5 +1,7 @@
 # Rscript visualize-plotable.R input.plotable output.png
-library(tidyverse)  
+suppressPackageStartupMessages({
+  library(tidyverse)  
+})
 
 debug=FALSE
 if(!debug)
@@ -65,7 +67,7 @@ deletion$scale=log(deletion$count)
 
 theme_set(theme_bw())
 plo<-ggplot()+
-  geom_polygon(data = cov, mapping = aes(x = pos, y = covy), fill = 'grey', color = 'grey') +
+  geom_polygon(data = cov, mapping = aes(x = pos, y = covy), fill = 'darkgrey', color = 'darkgrey') +
   geom_polygon(data = ambcov, aes(x = pos, y = ambcovy), fill = 'lightgrey', color = 'lightgrey')+
   geom_curve(data = deletion, mapping = aes(x = start, y = startcov, xend = end, yend = endcov, linewidth = scale),  curvature = -0.15, ncp=5,show.legend = FALSE)+
   scale_linewidth(range = c(0.3, 2))+xlab("position") + ylab("coverage")+

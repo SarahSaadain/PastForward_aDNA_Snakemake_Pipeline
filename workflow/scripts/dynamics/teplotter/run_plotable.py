@@ -147,20 +147,20 @@ def main():
     args = parser.parse_args()
 
     # Validate
-    if args.folders is not None and args.output is None:
-        parser.error("--output is required when using --folders")
+    if args.folders is not None and args.outdir is None:
+        parser.error("--outdir is required when using --folders")
 
     if args.folder is not None:
         if not args.folder.is_dir():
             parser.error(f"Folder not found: {args.folder}")
-        output = args.output if args.output else args.folder
+        output = args.outdir if args.outdir else args.folder
         single_folder_mode(args.folder, output)
 
     else:  # multi-folder mode
         for f in args.folders:
             if not f.is_dir():
                 parser.error(f"Folder not found: {f}")
-        multi_folder_mode(args.folders, args.output)
+        multi_folder_mode(args.folders, args.outdir)
 
 
 if __name__ == "__main__":
