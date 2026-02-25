@@ -6,13 +6,17 @@ Note: This pipeline is still in the final stages of development. It can already 
 
 ## Workflow Overview
 
+Below is a simplified overview of the processing steps of the pipeline:
+
 ![Pipeline Overview](docs/img/aDNA_pipeline_process.svg)
 
-For detailed information about the processing steps, see the [Process Overview](docs/process_overview.md).
+For detailed information about the processing steps, see the [Process Overview](docs/process_overview.md) page.
 
 ## Setup Overview
 
-The PastForward pipeline is implemented using Snakemake, a workflow management system. Snakemake ensures reproducibility and efficient execution of the pipeline. Information about the setup as well as configuration options can be found in the [Setup Instructions](docs/setup.md).
+The PastForward pipeline is implemented using Snakemake. Information about the setup as well as configuration options can be found in the [Setup Instructions](config/README.md).
+
+For more information on Snakemake, see the [Snakemake website](https://snakemake.github.io).
 
 ## Running the Pipeline
 
@@ -62,8 +66,6 @@ nohup snakemake --cores 40 --use-conda --keep-going --rerun-trigger mtime > pipe
 Snakemake automatically tracks the state of the pipeline and will only re-run steps that are incomplete or outdated. If you want to restart the pipeline from the beginning, you can delete the relevant output files and re-run the pipeline.
 
 If you want to restart the pipeline, because it has crashed or was terminated, you might need to use the `--rerun-incomplete` flag. This will re-run all incomplete steps, even if they have not been modified since the last run.
-
-
 
 ## Reports
 
