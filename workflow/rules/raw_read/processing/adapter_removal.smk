@@ -52,7 +52,7 @@ rule remove_adapters_single_with_fastp:
             f"--unqualified_percent_limit 40 "
             f"--n_base_limit 5"
         ),
-    threads: workflow.cores
+    threads: 10
     wrapper:
         "v7.5.0/bio/fastp"
  
@@ -91,7 +91,7 @@ rule remove_adapters_paired_with_fastp:
             f"--n_base_limit 5 "
             f"--merge"
         ),   
-    threads: workflow.cores
+    threads: 10
     wrapper:
         "v7.5.0/bio/fastp"
 
