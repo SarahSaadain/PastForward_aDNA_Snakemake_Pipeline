@@ -5,9 +5,17 @@ Run visualize-plotable.R on .plotable files from one or multiple sample folders.
 Single folder mode:
     python run_plotable.py --folder Dmel01_plottable
     python run_plotable.py --folder Dmel01_plottable --output results/
+    python run_plotable.py --folder Dmel01_plottable --log
+    python run_plotable.py --folder Dmel01_plottable --log 1000
 
 Multi-folder (merged/facet) mode:
     python run_plotable.py --folders Dmel01_plottable Dmel02_plottable --output merged_results/
+    python run_plotable.py --folders Dmel01_plottable Dmel02_plottable --output merged_results/ --log
+
+Authors
+-------
+    Robert Kofler
+    Sarah Saadain
 """
 
 import argparse
@@ -28,9 +36,11 @@ def find_plotables(folder: Path) -> dict[str, Path]:
 R_SCRIPT = Path(__file__).parent / "visualize-plotable.R"
 
 
-def run_rscript(input_path: Path, output_path: Path):
-    """Call the R script with input and output paths."""
+def run_rscript(input_path: Path, output_path: Path, log_arg: str | None = None):
+    """Call the R script with input and output paths, and optional log flag."""
     cmd = ["Rscript", str(R_SCRIPT), str(input_path), str(output_path)]
+    if log_arg is not None:
+        cmd.append(log_arg)
     log.info("Running: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=False)
     if result.returncode != 0:
@@ -43,13 +53,12 @@ def merge_plotables(file_paths: list[Path], dest: Path):
         for i, fp in enumerate(file_paths):
             with open(fp, "rb") as in_fh:
                 content = in_fh.read()
-                # Avoid double newlines between files; ensure trailing newline
                 if i > 0 and content and not content.startswith(b"\n"):
                     out_fh.write(b"\n")
                 out_fh.write(content)
 
 
-def single_folder_mode(folder: Path, output: Path):
+def single_folder_mode(folder: Path, output: Path, log_arg: str | None = None):
     """Plot each .plotable file in folder independently."""
     output.mkdir(parents=True, exist_ok=True)
     plotables = find_plotables(folder)
@@ -62,16 +71,15 @@ def single_folder_mode(folder: Path, output: Path):
     for name, src_path in sorted(plotables.items()):
         out_path = output / (src_path.stem + ".png")
         log.info("[%s]", name)
-        run_rscript(src_path, out_path)
+        run_rscript(src_path, out_path, log_arg)
 
     log.info("Done.")
 
 
-def multi_folder_mode(folders: list[Path], output: Path):
+def multi_folder_mode(folders: list[Path], output: Path, log_arg: str | None = None):
     """Merge same-named .plotable files across folders and plot each merged file."""
     output.mkdir(parents=True, exist_ok=True)
 
-    # Collect all unique file names across all folders
     all_names: dict[str, list[Path]] = {}
     for folder in folders:
         for name, path in find_plotables(folder).items():
@@ -81,7 +89,6 @@ def multi_folder_mode(folders: list[Path], output: Path):
         log.error("No .plotable files found in any of the provided folders.")
         sys.exit(1)
 
-    # Warn about files not present in all folders
     n_folders = len(folders)
     for name, paths in sorted(all_names.items()):
         if len(paths) < n_folders:
@@ -99,17 +106,22 @@ def multi_folder_mode(folders: list[Path], output: Path):
             merge_plotables(paths, merged_file)
 
             out_path = output / (Path(name).stem + ".png")
-            run_rscript(merged_file, out_path)
+            run_rscript(merged_file, out_path, log_arg)
 
     log.info("Done.")
 
 
+def build_log_arg(log_value: str | None) -> str | None:
+    """Convert the --log argparse value to the R script flag string."""
+    if log_value is None:
+        return None
+    if log_value == "":          # plain --log with no value
+        return "--log"
+    return f"--log={log_value}"  # --log=N threshold form
+
+
 def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     parser = argparse.ArgumentParser(
         description="Run visualize-plotable.R on .plotable files.",
@@ -144,7 +156,22 @@ def main():
         ),
     )
 
+    parser.add_argument(
+        "--log",
+        nargs="?",        # 0 or 1 argument: bare --log or --log N
+        const="",         # value when --log is given with no argument
+        default=None,     # value when --log is not given at all
+        metavar="N",
+        help=(
+            "Use logarithmic y-axis. "
+            "Without a value (--log): always use log scale. "
+            "With a value (--log 1000): auto-switch to log if max coverage exceeds N."
+        ),
+    )
+
     args = parser.parse_args()
+
+    log_arg = build_log_arg(args.log)
 
     # Validate
     if args.folders is not None and args.outdir is None:
@@ -154,13 +181,13 @@ def main():
         if not args.folder.is_dir():
             parser.error(f"Folder not found: {args.folder}")
         output = args.outdir if args.outdir else args.folder
-        single_folder_mode(args.folder, output)
+        single_folder_mode(args.folder, output, log_arg)
 
-    else:  # multi-folder mode
+    else:
         for f in args.folders:
             if not f.is_dir():
                 parser.error(f"Folder not found: {f}")
-        multi_folder_mode(args.folders, args.outdir)
+        multi_folder_mode(args.folders, args.outdir, log_arg)
 
 
 if __name__ == "__main__":
