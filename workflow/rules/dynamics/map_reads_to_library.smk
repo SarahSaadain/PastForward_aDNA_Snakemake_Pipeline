@@ -69,9 +69,7 @@ elif _dyn_mapper == "bwa-aln":
         output:
             temp("{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.unsorted.bam"),
         log:
-            "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg_bwa_samse.log",
-        params:
-            extra=_dyn_mapper_extra,
+            "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg_bwa_samse.log"
         threads: 1
         wrapper:
             "v9.3.0/bio/bwa/samse"
