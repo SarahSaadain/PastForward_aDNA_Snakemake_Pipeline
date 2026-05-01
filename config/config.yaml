@@ -104,7 +104,18 @@ pipeline:
   reference_processing:
     # When true, this stage will be executed (Default: true)
     execute: true
-    
+
+    mapping:
+      settings:
+        # Options: "bwa-aln" (default), "bwa-mem2", or "minimap2"
+        # bwa-aln: classic seed-and-extend, well-suited for short aDNA reads
+        # bwa-mem2: faster modern reimplementation of bwa-mem
+        # minimap2: fast versatile aligner, uses preset "-ax sr" for short reads
+        mapper: "bwa-aln"
+        # Optional: extra parameters passed directly to the mapper
+        # For bwa-aln, defaults to "-n 0.01 -k 2 -l 1024 -o 2" (Oliva et al. 2021, 10.1093/bib/bbab076)
+        #mapper_extra_params: ""
+
     # Deduplication settings
     deduplication:
       # When true, this sub-stage will be executed (Default: true)
@@ -140,7 +151,17 @@ pipeline:
   dynamics:
     # When true, this stage will be executed (Default: true)
     execute: true
-    teplotter:
+    mapping:
+      settings:
+        # Options: "bwa-aln" (default), "bwa-mem2", or "minimap2"
+        # bwa-aln: classic seed-and-extend, well-suited for short aDNA reads
+        # bwa-mem2: faster modern reimplementation of bwa-mem
+        # minimap2: fast versatile aligner, uses preset "-ax sr" for short reads
+        mapper: "bwa-aln"
+        # Optional: extra parameters passed directly to the mapper
+        # For bwa-aln, defaults to "-n 0.01 -k 2 -l 1024 -o 2" (Oliva et al. 2021, 10.1093/bib/bbab076)
+        #mapper_extra_params: ""
+    seqVista:
       # When true, this sub-stage will be executed (Default: true)
       execute: true
     pf_normalization:

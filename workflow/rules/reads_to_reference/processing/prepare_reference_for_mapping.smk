@@ -1,6 +1,8 @@
 ####################################################
 # Snakemake rules
 ####################################################
+_ref_mapper = config.get("pipeline", {}).get("reference_processing", {}).get("mapping", {}).get("settings", {}).get("mapper", "bwa-aln")
+
 rule standardize_reference_extension_to_fa:
     output:
         fa="{species}/raw/ref/{reference}.fa"
@@ -41,21 +43,51 @@ rule standardize_reference_extension_to_fa:
             logger.info(f"Reference {output.fa} already exists, skipping.")
 
 
-# Rule: Index reference with BWA
-# 2) BWA index on the standardized .fa
-rule index_reference_for_mapping:
-    input:
-        "{species}/raw/ref/{reference}.fa"
-    output:
-        multiext("{species}/raw/ref/{reference}.fa", ".amb", ".ann", ".bwt", ".pac", ".sa"),
-    message: "Indexing reference {wildcards.reference} with BWA"
-    log:
-        "{species}/processed/{reference}/index/{reference}_bwa_index.log"
-    resources:
-        mem_mb=369000,
-    cache: True
-    wrapper:
-        "v9.3.0/bio/bwa/index"
+if _ref_mapper == "minimap2":
+    rule index_reference_for_mapping_minimap2:
+        input:
+            "{species}/raw/ref/{reference}.fa"
+        output:
+            "{species}/raw/ref/{reference}.mmi",
+        message: "Indexing reference {wildcards.reference} with minimap2"
+        log:
+            "{species}/processed/{reference}/index/{reference}_minimap2_index.log"
+        resources:
+            mem_mb=16000,
+        cache: True
+        wrapper:
+            "v9.3.0/bio/minimap2/index"
+
+elif _ref_mapper == "bwa-mem2":
+    rule index_reference_for_mapping_bwa_mem2:
+        input:
+            "{species}/raw/ref/{reference}.fa"
+        output:
+            multiext("{species}/raw/ref/{reference}.fa", ".0123", ".amb", ".ann", ".bwt.2bit.64", ".pac"),
+        message: "Indexing reference {wildcards.reference} with BWA-MEM2"
+        log:
+            "{species}/processed/{reference}/index/{reference}_bwa_mem2_index.log"
+        resources:
+            mem_mb=369000,
+        cache: True
+        wrapper:
+            "v9.3.0/bio/bwa-mem2/index"
+
+else:
+    # bwa-aln (default)
+    rule index_reference_for_mapping_bwa_aln:
+        input:
+            "{species}/raw/ref/{reference}.fa"
+        output:
+            multiext("{species}/raw/ref/{reference}.fa", ".amb", ".ann", ".bwt", ".pac", ".sa"),
+        message: "Indexing reference {wildcards.reference} with BWA (for BWA ALN)"
+        log:
+            "{species}/processed/{reference}/index/{reference}_bwa_aln_index.log"
+        resources:
+            mem_mb=369000,
+        cache: True
+        wrapper:
+            "v9.3.0/bio/bwa/index"
 
 rule index_reference_with_samtools:
     input:
