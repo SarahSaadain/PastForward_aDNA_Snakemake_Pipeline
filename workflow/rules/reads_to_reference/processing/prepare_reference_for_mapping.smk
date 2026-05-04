@@ -46,7 +46,7 @@ rule standardize_reference_extension_to_fa:
 if _ref_mapper == "minimap2":
     rule index_reference_for_mapping_minimap2:
         input:
-            "{species}/raw/ref/{reference}.fa"
+            target="{species}/raw/ref/{reference}.fa"
         output:
             "{species}/raw/ref/{reference}.mmi",
         message: "Indexing reference {wildcards.reference} with minimap2"
