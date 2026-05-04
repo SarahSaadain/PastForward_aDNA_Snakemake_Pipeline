@@ -19,6 +19,9 @@ include: "reads_to_reference/processing/analyze_damage_and_rescale_bam.smk"
 # Get the final BAM file
 include: "reads_to_reference/processing/get_final_bam.smk"
 
+# Optionally remove or extract unmapped reads after QC statistics are captured
+include: "reads_to_reference/processing/filter_unmapped_reads.smk"
+
 # Determine coverage depth and breadth statistics
 include: "reads_to_reference/analytics/determine_coverage_depth_breadth.smk"
 

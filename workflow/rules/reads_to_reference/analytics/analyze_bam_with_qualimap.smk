@@ -1,7 +1,8 @@
 rule analyze_bam_with_qualimap:
     input:
-        # BAM aligned, splicing-aware, to reference genome
-        bam="{species}/processed/{reference}/mapped/{individual}_{reference}_final.bam"
+        # Use the pre-filter BAM so that unmapped-read statistics are always
+        # captured, even when filter_unmapped_reads is enabled with action="remove".
+        bam=_pre_filter_bam
     output:
         directory("{species}/results/{reference}/analytics/{individual}/qualimap"),
         "{species}/results/{reference}/analytics/{individual}/qualimap/qualimapReport.html"

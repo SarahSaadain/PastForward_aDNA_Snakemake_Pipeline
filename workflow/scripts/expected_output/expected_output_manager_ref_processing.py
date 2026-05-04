@@ -54,4 +54,19 @@ def get_expected_output_reference_processing(species):
             else:
                 logging.info(f"Skipping damage analysis for species {species} and individual {individual} to reference {reference}. Disabled in config.")
 
+            if config.get("pipeline", {}).get("reference_processing", {}).get("filter_unmapped_reads", {}).get("execute", False) == True:
+                action = config.get("pipeline", {}).get("reference_processing", {}).get("filter_unmapped_reads", {}).get("settings", {}).get("action", "remove")
+                if action == "remove":
+                    # _mapped_only.bam is a temp intermediate; get_final_bam copies
+                    # its content to _final.bam, which is already in expected_outputs.
+                    pass
+                elif action == "extract_fastq":
+                    expected_outputs.append(f"{species}/processed/{reference}/unmapped/{individual}_{reference}_unmapped.fastq.gz")
+                elif action == "extract_fasta":
+                    expected_outputs.append(f"{species}/processed/{reference}/unmapped/{individual}_{reference}_unmapped.fasta.gz")
+                else:
+                    logging.warning(f"Unknown filter_unmapped_reads action '{action}' for {individual}/{reference}. Skipping.")
+            else:
+                logging.info(f"Skipping unmapped reads filtering for species {species}, individual {individual}, reference {reference}. Disabled in config.")
+
     return expected_outputs

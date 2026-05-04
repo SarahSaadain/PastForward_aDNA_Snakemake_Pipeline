@@ -133,6 +133,16 @@ pipeline:
       # When true, this sub-stage will be executed (Default: true)
       execute: true
 
+    filter_unmapped_reads:
+      # When true, unmapped reads will be removed or extracted (Default: false)
+      execute: false
+      settings:
+        # What to do with unmapped reads. Choose one of:
+        #   "remove"        — write a mapped-reads-only BAM  ({individual}_{reference}_mapped_only.bam)
+        #   "extract_fastq" — write unmapped reads to a compressed FASTQ ({individual}_{reference}_unmapped.fastq.gz)
+        #   "extract_fasta" — write unmapped reads to a compressed FASTA ({individual}_{reference}_unmapped.fasta.gz)
+        action: "remove"
+
     # Damage analysis settings for mapDamage2
     damage_analysis:
       # When true, this sub-stage will be executed (Default: true)
@@ -144,9 +154,10 @@ pipeline:
       execute: true
 
     # Coverage analysis settings
-    coverage_analysis: 
+    coverage_analysis:
       # When true, this sub-stage will be executed (Default: true)
       execute: true
+
 
   dynamics:
     # When true, this stage will be executed (Default: true)
