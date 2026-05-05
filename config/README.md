@@ -69,9 +69,21 @@ Dmel01_DabneyProtocol_R1_001.fastq.gz
 
 The `config.yaml` file is used to configure the aDNA pipeline. It contains settings such as project name, the species list and the pipeline stages and their process steps.
 
+All pipeline stages are enabled by default, so a minimal config containing only the project name and species list is sufficient to run the pipeline without any further changes:
+
+```yaml
+project_name: "pastForward_Project"
+
+species:
+  Dmel:
+    name: "Drosophila melanogaster"
+```
+
+To adjust any pipeline settings, open [config_designer.html](config_designer.html) in a browser. The interactive Config Designer guides you through all available options and exports a ready-to-use `config.yaml`.
+
 ## Global Settings
 
-* **project\_name**: Name of the aDNA project.
+* **project\_name**: Name of the project.
 
 ## Pipeline Settings
 
@@ -90,13 +102,114 @@ Defines the overall pipeline behavior, including execution controls and process 
 * You **do not need to specify all stages or process steps** explicitly.
 * Any **stage or process step not provided in the config defaults to `execute: true`** and will be executed.
 
+### Global Pipeline Settings
+
+| Setting | Default | Description |
+|---|---|---|
+| `pipeline.global.skip_existing_files` | `true` | When true, existing output files are skipped to avoid re-computation. |
+
+### Stage: `raw_reads_processing`
+
+Quality checking, adapter removal, quality filtering, merging, contamination analysis, and statistical analysis of raw reads.
+
+#### `adapter_removal`
+
+| Setting | Default | Description |
+|---|---|---|
+| `settings.min_quality` | `0` | Minimum base quality score for adapter trimming. |
+| `settings.min_length` | `0` | Minimum read length after adapter removal. |
+| `settings.adapters_sequences.r1` | auto-detect | Adapter sequence for read 1. If omitted, fastp detects adapters automatically. |
+| `settings.adapters_sequences.r2` | auto-detect | Adapter sequence for read 2. If omitted, fastp detects adapters automatically. |
+| `settings.extra_params` | — | Optional extra parameters passed directly to fastp. |
+
+#### `quality_filtering`
+
+| Setting | Default | Description |
+|---|---|---|
+| `settings.min_quality` | `15` | Minimum base quality score for quality filtering. |
+| `settings.min_length` | `30` | Minimum read length after quality filtering. |
+
+#### `contamination_analysis`
+
+Both tools operate on quality-filtered reads and can be toggled independently.
+
+**ECMSD** — maps reads against a curated mitochondrial reference database; no additional settings required.
+
+**Centrifuge** — k-mer-based taxonomic classification against a user-provided database.
+
+| Setting | Default | Description |
+|---|---|---|
+| `tools.centrifuge.settings.include_human_taxid` | `false` | When true, the human taxid is included in the Centrifuge analysis. |
+| `tools.centrifuge.settings.index` | — | Optional path to the Centrifuge index prefix. If omitted, the default index will be downloaded automatically. |
+| `tools.centrifuge.settings.conda_env` | — | Optional path to a custom conda environment for Centrifuge. |
+
+### Stage: `reference_processing`
+
+Mapping, deduplication, damage analysis, coverage — runs per individual per reference.
+
+#### `mapping`
+
+Merged per-individual reads are mapped to the reference genome. Mapping always runs when Reference Processing is enabled.
+
+| Setting | Default | Description |
+|---|---|---|
+| `settings.mapper` | `bwa-aln` | Mapper to use. Options: `bwa-aln` (classic seed-and-extend, recommended for short aDNA reads <70 bp), `bwa-mem2` (faster, for longer reads), `minimap2` (versatile, uses `-ax sr` preset for short reads). |
+| `settings.mapper_extra_params` | — | Optional extra parameters passed directly to the mapper. For `bwa-aln`, defaults to `-n 0.01 -k 2 -l 1024 -o 2` (Oliva et al. 2021). |
+
+#### `deduplication`
+
+Removes PCR and sequencing duplicates using DeDup. Default: **off**.
+
+| Setting | Default | Description |
+|---|---|---|
+| `settings.max_contigs_per_cluster` | `500` | Maximum number of contigs grouped per deduplication cluster. Lower values use less memory but increase runtime. Reduce (e.g. to 100) only for large, highly fragmented reference genomes. |
+
+#### `filter_unmapped_reads`
+
+Optionally removes or extracts reads that did not map to the reference. Default: **off**.
+
+| Setting | Default | Description |
+|---|---|---|
+| `settings.action` | `remove` | What to do with unmapped reads: `remove` — write a mapped-reads-only BAM; `extract_fastq` — write unmapped reads to a compressed FASTQ; `extract_fasta` — write unmapped reads to a compressed FASTA. |
+
+#### Other `reference_processing` steps
+
+| Step | Default | Description |
+|---|---|---|
+| `damage_rescaling` | on | Profiles cytosine deamination and rescales base quality scores using mapDamage2. |
+| `damage_analysis` | on | Visualises damage patterns and generates statistics for MultiQC reporting using mapDamage2. |
+| `endogenous_reads_analysis` | on | Calculates the fraction of reads that mapped to the reference (endogenous content). |
+| `coverage_analysis` | on | Computes coverage breadth and mean depth; runs Qualimap and Preseq for library complexity. |
+
+### Stage: `dynamics`
+
+TE and genomic feature abundance analysis — maps to a combined SCG + feature library for depth-normalised comparisons. Requires feature and SCG libraries placed in `{species}/raw/dynamics/`.
+
+#### `mapping`
+
+| Setting | Default | Description |
+|---|---|---|
+| `settings.mapper` | `bwa-aln` | Mapper to use. Same options as `reference_processing.mapping`. |
+| `settings.mapper_extra_params` | — | Optional extra parameters passed directly to the mapper. |
+
+#### Other `dynamics` steps
+
+| Step | Default | Description |
+|---|---|---|
+| `seqvista` | on | Generates per-position coverage profiles and per-individual TE occupancy plots. |
+| `pf_normalization` | on | Normalises TE abundance by SCG coverage for cross-individual comparability. |
+
+### Stage: `summary_processing`
+
+Consolidates all QC outputs into MultiQC HTML reports — one per individual and one per species.
+
 ### Example `config.yaml`
 
 ```yaml
-# config.yaml - Configuration file for aDNA pipeline
+# config.yaml - Configuration file for pastForward
 # This file contains settings for various stages of the pipeline
 
-project_name: "aDNA_Project"
+project_name: "pastForward_Project"
 
 # Pipeline stages and their configurations
 pipeline:
@@ -106,144 +219,116 @@ pipeline:
     # When true, existing output files will be skipped to avoid re-computation (Default: true)
     skip_existing_files: true
 
-  # Stages of the pipeline
-
   # Raw reads processing
-  # Includes quality checking, adapter removal, quality filtering, merging, 
-  # contamination analysis, and statistical analysis
   raw_reads_processing:
-    # When true, this stage will be executed. (Default: true)
     execute: true
 
-    # Sub-stages with their respective settings
-    # Quality checking of raw reads
     quality_checking_raw:
-      # When true, this sub-stage will be executed (Default: true)
       execute: true
-    
-    # Adapter removal from raw reads
+
     adapter_removal:
-      # When true, this sub-stage will be executed (Default: true)
-      execute: true
-
-      # Settings for adapter removal
-      settings: 
-        # Minimum quality score for adapter removal
-        min_quality: 0
-        # Minimum length of reads after adapter removal
-        min_length: 0
-        # Optional: Adapter sequences for read 1 and read 2
-        # If not provided, fastp will try to identify adapters automatically
-        adapters_sequences:
-          # Adapter sequence for read 1
-          r1: "AGATCGGAAGAGCACACGTCTGAACTCCAGTCA"
-          # Adapter sequence for read 2
-          r2: "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT" 
-    
-    # Quality checking of trimmed reads
-    quality_checking_trimmed:
-      # When true, this sub-stage will be executed (Default: true)
-      execute: true
-
-    # Quality filtering of trimmed reads
-    quality_filtering:
-      # When true, this sub-stage will be executed (Default: true)
       execute: true
       settings:
-        # Minimum quality score for quality filtering
+        min_quality: 0
+        min_length: 0
+        # Optional: custom adapter sequences (auto-detected by fastp if not provided)
+        #adapters_sequences:
+        #  r1: "AGATCGGAAGAGCACACGTCTGAACTCCAGTCA"
+        #  r2: "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
+        # Optional: extra parameters for fastp
+        #extra_params: ""
+
+    quality_checking_trimmed:
+      execute: true
+
+    quality_filtering:
+      execute: true
+      settings:
         min_quality: 15
-        # Minimum length of reads after quality filtering
         min_length: 30
 
-    # Quality checking of quality-filtered reads
     quality_checking_quality_filtered:
-      # When true, this sub-stage will be executed (Default: true)
       execute: true
 
-    # Quality checking of merged reads
     quality_checking_merged:
-      # When true, this sub-stage will be executed (Default: true)
       execute: true
 
-    # Contamination analysis
     contamination_analysis:
-      # When true, this sub-stage will be executed (Default: true)
       execute: true
       tools:
-        # ECMSD tool settings for contamination analysis
         ecmsd:
-          # When true, this tool will be executed (Default: true)
           execute: true
-        # Centrifuge tool settings for contamination analysis
         centrifuge:
-          # When true, this tool will be executed (Default: true)
           execute: true
           settings:
-            # Optional: Path to the conda environment for Centrifuge
-            # If not provided, the default environment will be used
+            # When true, human will be included in the Centrifuge analysis (Default: false)
+            include_human_taxid: false
+            # Optional: path to the Centrifuge index (downloaded automatically if not provided)
+            #index: "/path/to/centrifuge_index"
+            # Optional: custom conda environment for Centrifuge
             #conda_env: "../../../../envs/centrifuge.yaml"
-            # Path to the Centrifuge index
-            index: "/path/to/centrifuge_index"
-    
-    # Statistical analysis
+
     statistical_analysis:
-      # When true, this sub-stage will be executed (Default: true)
       execute: true
 
   # Reference processing
   reference_processing:
-    # When true, this stage will be executed (Default: true)
     execute: true
-    
-    # Deduplication settings
+
+    mapping:
+      settings:
+        # Options: "bwa-aln" (default), "bwa-mem2", "minimap2"
+        mapper: "bwa-aln"
+        # Optional: extra parameters passed directly to the mapper
+        #mapper_extra_params: ""
+
     deduplication:
-      # When true, this sub-stage will be executed (Default: true)
+      # Default: true — set to false only if library complexity is very low
+      execute: true
+      settings:
+        # Maximum contigs per deduplication cluster (Default: 500)
+        max_contigs_per_cluster: 500
+
+    damage_rescaling:
+      execute: true
+
+    filter_unmapped_reads:
+      # Default: false — enable to remove or extract unmapped reads
       execute: false
       settings:
-        # To increase performance, deduplication will be done per cluster of contigs
-        # Below settings define how the contigs will be clustered
-        # Optional: Maximum number of contigs per cluster (Default: 10 if not specified)
-        max_contigs_per_cluster: 10
-        # Optional: Maximum number of contigs per cluster (Default: 500 if not specified)
-        max_contigs_per_cluster: 500
-    
-    # Damage rescaling settings for mapDamage2
-    damage_rescaling:
-      # When true, this sub-stage will be executed (Default: true)
-      execute: true
+        # Options: "remove", "extract_fastq", "extract_fasta"
+        action: "remove"
 
-    # Damage analysis settings for mapDamage2
     damage_analysis:
-      # When true, this sub-stage will be executed (Default: true)
       execute: true
 
-    # Endogenous reads analysis settings
-    endogenous_reads_analysis: 
-      # When true, this sub-stage will be executed (Default: true)
+    endogenous_reads_analysis:
       execute: true
 
-    # Coverage analysis settings
-    coverage_analysis: 
-      # When true, this sub-stage will be executed (Default: true)
+    coverage_analysis:
       execute: true
 
   dynamics:
-    # When true, this stage will be executed (Default: true)
     execute: true
+
+    mapping:
+      settings:
+        # Options: "bwa-aln" (default), "bwa-mem2", "minimap2"
+        mapper: "bwa-aln"
+        # Optional: extra parameters passed directly to the mapper
+        #mapper_extra_params: ""
+
     seqvista:
-      # When true, this sub-stage will be executed (Default: true)
       execute: true
+
     pf_normalization:
-      # When true, this sub-stage will be executed (Default: true)
       execute: true
-  
+
   summary_processing:
-    # When true, this stage will be executed (Default: true)
     execute: true
 
 # Species details
 species:
-  Clup:
-    name: "Canis lupus"
   Dmel:
     name: "Drosophila melanogaster"
+```

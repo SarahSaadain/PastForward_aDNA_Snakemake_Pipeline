@@ -16,6 +16,8 @@ For detailed information about the processing steps, see the [Process Overview](
 
 The pastForward pipeline is implemented using Snakemake. Information about the setup as well as configuration options can be found in the [Setup Instructions](config/README.md).
 
+All pipeline stages are enabled by default, so a minimal `config.yaml` with just the project name and species list is sufficient to get started. If you want to adjust any settings, open [config/config_designer.html](config/config_designer.html) in a browser — the interactive Config Designer lets you configure pipeline stages and species settings through a graphical interface and exports a ready-to-use `config.yaml`.
+
 For more information on Snakemake, see the [Snakemake website](https://snakemake.github.io).
 
 ## Running the Pipeline

@@ -351,6 +351,31 @@
       </div>
     </div>
 
+    <!-- ─── Species ─── -->
+    <div class="section">
+      <div class="section-header open" onclick="toggleSec(this)">
+        <div class="section-icon" style="background:#e0f2f1">&#129440;</div>
+        <div class="section-title">
+          <h3>Species</h3>
+          <p>Each key must match a species folder in the pipeline root directory</p>
+        </div>
+        <span class="chevron">&#9654;</span>
+      </div>
+      <div class="section-body open">
+        <div style="display:grid;grid-template-columns:90px 1fr 28px;gap:6px;margin-bottom:6px;padding:0 2px">
+          <span style="font-size:.65rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Key</span>
+          <span style="font-size:.65rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Display Name</span>
+          <span></span>
+        </div>
+        <div id="species-list"></div>
+        <button class="btn-add-species" onclick="addSpecies()">+ Add Species</button>
+        <p class="hint" style="margin-top:8px">
+          <strong>Key</strong> = folder name and YAML map key (alphanumeric / underscore, no spaces). Must match the directory under the pipeline root.<br>
+          <strong>Display Name</strong> = human-readable species name used in reports (e.g. <em>Drosophila melanogaster</em>).
+        </p>
+      </div>
+    </div>
+
     <!-- ─── Global ─── -->
     <div class="section">
       <div class="section-header open" onclick="toggleSec(this)">
@@ -503,6 +528,7 @@
             <div class="step-desc">
               <span class="tool-pill">FastQC</span><span class="tool-pill">MultiQC</span>
               FastQC on adapter-trimmed reads. Confirms that adapter removal was effective before the quality filtering step.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off to save time. Useful to keep on when troubleshooting trimming issues (e.g. adapter sequences still present) or when validating a new adapter configuration on a dataset for the first time.</div>
             </div>
           </div>
 
@@ -522,18 +548,19 @@
               A dedicated second fastp pass acting <strong>purely as a quality gate</strong> &mdash; adapter trimming is explicitly
               disabled here to avoid double-processing. Thresholds are configured <em>independently</em> from the adapter
               removal step, allowing fine-grained control of each stage separately.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off only if you have very few reads and cannot afford further losses, or to benchmark unfiltered mapping. Recommended for all standard aDNA workflows — low-quality bases inflate error rates and reduce mapping sensitivity.</div>
             </div>
             <div class="subsection-body open">
               <div class="field-row">
                 <div class="field">
                   <label>Min Quality</label>
                   <input type="number" id="qf_minq" value="15" min="0" max="40" oninput="render()">
-                  <p class="hint">Per-base quality threshold (Phred). Default: 15.</p>
+                  <p class="hint">Default: 15. Q15 is a reasonable baseline for aDNA. Increase to Q20 for stricter filtering on high-coverage data; decrease only if read depth is critically low and you need to retain more reads.</p>
                 </div>
                 <div class="field">
                   <label>Min Length</label>
                   <input type="number" id="qf_minl" value="30" min="0" oninput="render()">
-                  <p class="hint">Minimum read length. Default: 30.</p>
+                  <p class="hint">Default: 30 bp — the standard minimum for reliable mapping. Increase for longer-fragment aDNA; decrease only if fragments are genuinely shorter (e.g. highly degraded specimens).</p>
                 </div>
               </div>
             </div>
@@ -552,6 +579,7 @@
             <div class="step-desc">
               <span class="tool-pill">FastQC</span><span class="tool-pill">MultiQC</span>
               FastQC on quality-filtered reads. Verifies the effect of quality filtering before reads are merged per individual.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off to save time on large datasets. Keep on to confirm filtering had the intended effect — particularly important after changing quality thresholds.</div>
             </div>
           </div>
 
@@ -570,6 +598,7 @@
               FastQC on the final per-individual merged reads. Many sequencing projects split one individual across multiple
               lanes or runs &mdash; this step runs after all samples for the same individual have been concatenated into one FASTQ.
               The individual identifier is everything before the first <code>_</code> in the filename.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off to save time. Keep on when merging samples from multiple sequencing runs or lanes — this QC step verifies the final merged FASTQ looks as expected before committing to mapping.</div>
             </div>
           </div>
 
@@ -588,6 +617,7 @@
               <span class="tool-pill green">ECMSD</span><span class="tool-pill green">Centrifuge</span>
               Both tools operate on <strong>quality-filtered reads</strong>. Each tool can be toggled independently.
               Results from multiple samples belonging to the same individual are merged into a combined summary.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Recommended for all aDNA work — contamination is a key quality metric for any ancient specimen. Turn off only if contamination screening has already been done externally, or if you need mapping results quickly and plan to run this separately.</div>
             </div>
             <div class="subsection-body open">
 
@@ -604,6 +634,7 @@
                   Maps reads against a curated <strong>mitochondrial reference database</strong> and reports the proportional
                   contribution of different taxa. Configurable binning resolution, RMUS threshold, mapping quality cutoff,
                   and taxonomic level (default: genus). Per-sample results are merged per individual.
+                  <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off if ECMSD is not installed or configured on your system. Well-suited for vertebrate aDNA where mitochondrial contamination is the primary concern.</div>
                 </p>
               </div>
 
@@ -620,6 +651,7 @@
                   <strong>k-mer-based taxonomic classification</strong> against a user-provided database.
                   Reports top 10 taxa ranked by both total and unique read assignments.
                   An index path is required (see optional settings below).
+                  <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off if no Centrifuge index is available — the index path must be set for this tool to run. Provides broad taxonomic screening across all domains of life, complementing the mitochondria-focused ECMSD.</div>
                 </p>
                 <div class="toggle-wrap" style="margin-bottom:10px">
                   <label class="toggle">
@@ -673,6 +705,7 @@
               Tracks <strong>read counts at each processing stage</strong> (raw &rarr; after adapter removal &rarr; after quality filtering)
               per sample. Results are combined into a species-level summary CSV and used to generate
               read-count bar plots as well as custom content sections inside the MultiQC reports.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Rarely a reason to turn off. The per-stage read counts feed MultiQC and the visualisation plots — disabling it leaves those sections empty and removes the ability to see how many reads were retained through each processing step.</div>
             </div>
           </div>
 
@@ -715,6 +748,7 @@
               coordinate-sorted and indexed. The unsorted BAM is discarded to save disk space.
               The <strong>pre-dedup sorted BAM</strong> is used for <strong>Preseq</strong> library complexity estimation
               &mdash; running Preseq after deduplication would remove the duplication information it requires, producing invalid estimates.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Mapping always runs when Reference Processing is enabled — it is the core step that all downstream analyses depend on. Choose your mapper based on your data: <strong>bwa-aln</strong> for typical short aDNA reads (&lt;70 bp), <strong>bwa-mem2</strong> for longer reads or speed, <strong>minimap2</strong> for highly divergent references.</div>
             </div>
             <div class="subsection-body open">
               <div class="field">
@@ -746,10 +780,10 @@
           <!-- Deduplication -->
           <div class="subsection">
             <div class="subsection-header clickable" onclick="toggleSub(this)">
-              <span class="sdot off" id="d_dedup"></span>
+              <span class="sdot on" id="d_dedup"></span>
               <span class="subsection-title">Deduplication</span>
               <label class="toggle" onclick="event.stopPropagation()">
-                <input type="checkbox" id="dedup_exec" onchange="dot('dedup_exec','d_dedup'); render()">
+                <input type="checkbox" id="dedup_exec" checked onchange="dot('dedup_exec','d_dedup'); render()">
                 <span class="slider"></span>
               </label>
               <span class="sub-chevron">&#9654;</span>
@@ -763,12 +797,13 @@
               To manage memory on references with many contigs, contigs are grouped into clusters and each cluster is
               deduplicated independently, then merged. The cluster size is configurable below.
               Each deduplication run produces a histogram and JSON statistics file that feed into MultiQC.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Leave on for most aDNA analyses — PCR duplicates inflate apparent read depth and bias variant calling. Turn off only if library complexity is very low (duplicate removal would leave too few reads) or if you specifically need the pre-dedup BAM for a downstream tool.</div>
             </div>
             <div class="subsection-body open">
               <div class="field">
                 <label>Max Contigs per Cluster</label>
                 <input type="number" id="dedup_max" value="500" min="1" oninput="render()">
-                <p class="hint">Upper bound for contig cluster size. Default: 500. Lower values reduce memory but increase runtime.</p>
+                <p class="hint">Default: 500. Lower values use less memory per cluster but increase runtime due to more merge operations. Reduce (e.g. to 100) only if deduplication is failing on a large, fragmented reference genome.</p>
               </div>
             </div>
           </div>
@@ -792,6 +827,7 @@
               <br><br>
               Input BAM is selected dynamically: deduplicated BAM if deduplication is enabled, otherwise the sorted BAM.
               The rescaled BAM is sorted and indexed; the unsorted rescaled BAM is discarded.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Recommended for any analysis involving variant calling or genotyping — rescaling reduces the influence of damage-induced errors. Turn off if you want to inspect raw damage patterns before deciding, or if your downstream tools model damage explicitly and do not benefit from rescaled base qualities.</div>
             </div>
           </div>
 
@@ -810,6 +846,7 @@
               Optionally dispose of reads that did not map to the reference. Choose between writing a
               <strong>mapped-reads-only BAM</strong>, or extracting the unmapped reads to <strong>FASTQ.gz</strong>
               or <strong>FASTA.gz</strong> for downstream analysis (e.g. further contamination screening).
+              <div class="when-hint"><span class="def-pill off">Default: OFF</span>Turn on to reduce final BAM file size by removing unmapped reads (<strong>remove</strong>), or to investigate what did not map to the reference — useful for metagenomic screening of non-endogenous content (<strong>extract_fastq / extract_fasta</strong>). Not needed for standard aDNA workflows.</div>
             </div>
             <div class="subsection-body open">
               <div class="field">
@@ -837,6 +874,7 @@
               <span class="tool-pill orange">mapDamage2</span>
               Visualises DNA damage patterns and generates statistics files for QC reporting.
               The output directory is copied into the summary folder structure and included in the MultiQC BAM report.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off only if you have already profiled damage externally or are working with non-aDNA data. Disabling removes the damage pattern section from MultiQC reports.</div>
             </div>
           </div>
 
@@ -856,6 +894,7 @@
               the reference &mdash; the <em>endogenous content</em>. Combined with raw read counts from Module 1,
               this provides a complete picture of how much sequenced data is target-derived.
               Results are combined into a species-level summary and included in MultiQC as a bar chart.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Essential metric for evaluating aDNA extraction success. There is rarely a reason to turn this off — endogenous content is one of the first numbers reviewers and collaborators ask for.</div>
             </div>
           </div>
 
@@ -877,6 +916,7 @@
               <br><br>
               Additionally: <strong>Qualimap bamqc</strong> produces an HTML QC report (mapping rate, coverage uniformity, GC content, insert size).
               <strong>Preseq</strong> estimates library complexity and extrapolates sequencing yield.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Key QC metrics for aDNA — coverage breadth and depth determine whether a sample has enough data for downstream genotyping or population analysis. Turn off only if you need mapping results quickly and will assess coverage separately.</div>
             </div>
           </div>
 
@@ -919,6 +959,7 @@
               TE/feature sequences (suffixed <code>_fle</code>) and single-copy gene sequences (suffixed <code>_scg</code>).
               Unmapped reads are discarded immediately after conversion from SAM to BAM to reduce file sizes.
               Multiple feature libraries per species are supported &mdash; each produces an independent set of results.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Mapping always runs when Dynamics is enabled. Use <strong>bwa-aln</strong> for typical short aDNA fragments; switch to <strong>bwa-mem2</strong> for longer reads or higher throughput. The combined SCG + TE library is indexed automatically.</div>
             </div>
             <div class="subsection-body open">
               <div class="field">
@@ -962,6 +1003,7 @@
               information for each reference sequence. Profiles are normalised and converted into a SeqVista-compatible
               directory structure, then used to produce <strong>per-individual TE occupancy plots</strong> and a
               <strong>faceted species-level comparison plot</strong> showing TE dynamics across all individuals simultaneously.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off if you only need normalised abundance counts and do not require per-position TE occupancy profiles. SeqVista is more computationally intensive than PF Normalization alone.</div>
             </div>
           </div>
 
@@ -980,6 +1022,7 @@
               comparable across individuals regardless of differences in sequencing depth or mapping efficiency.
               Per-individual coverage files are combined into a species-level table, and an R-based plot shows
               normalised TE abundance across all individuals. Individual order in the plot follows the species individual list.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Should almost always remain on when Dynamics is enabled — without SCG normalisation, raw TE counts are not comparable across individuals with different sequencing depths. Turn off only if you specifically want unnormalised coverage values.</div>
             </div>
           </div>
 
@@ -1005,6 +1048,7 @@
           </label>
           <label class="lbl" for="sp_exec">Execute Summary Processing</label>
         </div>
+        <p class="exec-note" style="margin-left:0;padding-left:0"><span class="def-pill on">Default: ON</span>Generates the final MultiQC HTML reports. There is rarely a reason to turn this off — it is the primary deliverable of the pipeline. Only disable if you are running a partial test and do not need consolidated reports yet.</p>
         <p style="font-size:.78rem;color:var(--text-muted);line-height:1.55">
           Produces two levels of <strong>MultiQC</strong> HTML reports:
         </p>
@@ -1018,31 +1062,6 @@
           Only outputs from <em>enabled</em> steps are included &mdash; disabled steps are silently omitted,
           keeping the report self-consistent. Qualimap and mapDamage2 output directories are copied into the
           summary folder structure before report generation.
-        </p>
-      </div>
-    </div>
-
-    <!-- ─── Species ─── -->
-    <div class="section">
-      <div class="section-header open" onclick="toggleSec(this)">
-        <div class="section-icon" style="background:#e0f2f1">&#129440;</div>
-        <div class="section-title">
-          <h3>Species</h3>
-          <p>Each key must match a species folder in the pipeline root directory</p>
-        </div>
-        <span class="chevron">&#9654;</span>
-      </div>
-      <div class="section-body open">
-        <div style="display:grid;grid-template-columns:90px 1fr 28px;gap:6px;margin-bottom:6px;padding:0 2px">
-          <span style="font-size:.65rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Key</span>
-          <span style="font-size:.65rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Display Name</span>
-          <span></span>
-        </div>
-        <div id="species-list"></div>
-        <button class="btn-add-species" onclick="addSpecies()">+ Add Species</button>
-        <p class="hint" style="margin-top:8px">
-          <strong>Key</strong> = folder name and YAML map key (alphanumeric / underscore, no spaces). Must match the directory under the pipeline root.<br>
-          <strong>Display Name</strong> = human-readable species name used in reports (e.g. <em>Drosophila melanogaster</em>).
         </p>
       </div>
     </div>
