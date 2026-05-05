@@ -13,15 +13,15 @@ Before any processing begins, raw FASTQ files are moved into a standardised dire
 
 ### Adapter Removal
 
-Adapter sequences are removed from raw reads using **fastp**. This step can be turned on or off with **`pipeline > raw_reads_processing > adapter_removal > execute`**. The pipeline automatically detects whether a sample is single-end or paired-end by checking for the presence of an R2 file, and each mode is handled by a dedicated rule.
+Adapter sequences are removed from raw reads using **fastp**. This step can be turned on or off with **`pipeline.raw_reads_processing.adapter_removal.execute`**. The pipeline automatically detects whether a sample is single-end or paired-end by checking for the presence of an R2 file, and each mode is handled by a dedicated rule.
 
-For single-end data, an adapter sequence can optionally be provided via **`pipeline > raw_reads_processing > adapter_removal > settings > adapters_sequences > r1`**. If left empty, fastp performs automatic adapter detection. For paired-end data, separate sequences can be set for R1 and R2 via **`adapters_sequences > r1`** and **`adapters_sequences > r2`**; if neither is provided, fastp's built-in paired-end detection is used instead. Beyond adapters, the step enforces a minimum read length (**`settings > min_length`**, default 0) and a minimum per-base quality score (**`settings > min_quality`**, default 0). Poly-X tail trimming is always active.
+For single-end data, an adapter sequence can optionally be provided via **`pipeline.raw_reads_processing.adapter_removal.settings.adapters_sequences.r1`**. If left empty, fastp performs automatic adapter detection. For paired-end data, separate sequences can be set for R1 and R2 via **`adapters_sequences.r1`** and **`adapters_sequences.r2`**; if neither is provided, fastp's built-in paired-end detection is used instead. Beyond adapters, the step enforces a minimum read length (**`settings.min_length`**, default 0) and a minimum per-base quality score (**`settings.min_quality`**, default 0). Poly-X tail trimming is always active. Additional fastp parameters can be passed directly via **`settings.extra_params`**.
 
 Paired-end reads receive additional treatment: overlapping read pairs are merged into single reads, which is particularly important for ancient DNA where fragment lengths are often shorter than the combined read length. The final output for PE samples concatenates the merged reads, the unmerged trimmed R1 and R2, and any unpaired reads into a single FASTQ file — ensuring no data is discarded. Fastp generates an HTML and JSON report for every sample, which feed into later QC aggregation.
 
 ### Quality Filtering
 
-After adapter removal, reads go through a second dedicated quality filtering step, again using **fastp**, controlled by **`pipeline > raw_reads_processing > quality_filtering > execute`**. Adapter trimming is explicitly disabled here so the step acts purely as a quality gate. The minimum quality score (**`pipeline > raw_reads_processing > quality_filtering > settings > min_quality`**, default 15) and minimum read length (**`settings > min_length`**, default 15) are configured independently from the adapter removal thresholds, allowing for separate tuning of each stage. The step produces its own HTML and JSON reports per sample.
+After adapter removal, reads go through a second dedicated quality filtering step, again using **fastp**, controlled by **`pipeline.raw_reads_processing.quality_filtering.execute`**. Adapter trimming is explicitly disabled here so the step acts purely as a quality gate. The minimum quality score (**`pipeline.raw_reads_processing.quality_filtering.settings.min_quality`**, default 15) and minimum read length (**`settings.min_length`**, default 15) are configured independently from the adapter removal thresholds, allowing for separate tuning of each stage. The step produces its own HTML and JSON reports per sample.
 
 ### Merge by Individual
 
@@ -43,15 +43,15 @@ Two R-based plots are generated from the read count statistics: one showing tota
 
 ### Contamination Analysis
 
-The Past Forward aDNA Pipeline supports two contamination detection tools, both operating on the quality-filtered reads. The entire contamination analysis block is controlled by **`pipeline > raw_reads_processing > contamination_analysis > execute`**, and each tool can additionally be toggled individually.
+The Past Forward aDNA Pipeline supports two contamination detection tools, both operating on the quality-filtered reads. The entire contamination analysis block is controlled by **`pipeline.raw_reads_processing.contamination_analysis.execute`**, and each tool can additionally be toggled individually.
 
-**ECMSD** assesses contamination by mapping reads against a curated mitochondrial reference database and reporting the proportional contribution of different taxa. It is enabled via **`tools > ecmsd > execute`**. The path to the ECMSD executable is set with **`tools > ecmsd > settings > executable`** and the conda environment can be customised via **`settings > conda_env`**. Several analysis parameters are configurable: **`settings > Binsize`** (default 1000) controls the read binning resolution, **`settings > RMUS_threshold`** (default 0.15) filters out marginal hits, **`settings > mapping_quality`** (default 20) sets the minimum mapping quality for a read to be considered, and **`settings > taxonomic_hierarchy`** (default `genus`) determines at which taxonomic level results are reported. Results from all samples belonging to the same individual are merged into a combined summary file.
+**ECMSD** assesses contamination by mapping reads against a curated mitochondrial reference database and reporting the proportional contribution of different taxa. It is enabled via **`tools.ecmsd.execute`**. The path to the ECMSD executable is set with **`tools.ecmsd.settings.executable`** and the conda environment can be customised via **`settings.conda_env`**. Several analysis parameters are configurable: **`settings.Binsize`** (default 1000) controls the read binning resolution, **`settings.RMUS_threshold`** (default 0.15) filters out marginal hits, **`settings.mapping_quality`** (default 20) sets the minimum mapping quality for a read to be considered, and **`settings.taxonomic_hierarchy`** (default `genus`) determines at which taxonomic level results are reported. Results from all samples belonging to the same individual are merged into a combined summary file.
 
-**Centrifuge** performs k-mer-based taxonomic classification against a user-provided database and is enabled via **`tools > centrifuge > execute`**. The **`settings > index`** parameter is required and must point to the full path of the Centrifuge database index prefix. The conda environment can be overridden with **`settings > conda_env`**. Beyond raw classification, the pipeline derives proportional taxon abundance and extracts the top 10 taxa ranked by both total and unique read assignments.
+**Centrifuge** performs k-mer-based taxonomic classification against a user-provided database and is enabled via **`tools.centrifuge.execute`**. The **`settings.index`** parameter optionally points to the Centrifuge database index prefix; if omitted, the default index is downloaded automatically. The conda environment can be overridden with **`settings.conda_env`**. The **`settings.include_human_taxid`** flag (default `false`) controls whether the human taxid is included in the analysis. Beyond raw classification, the pipeline derives proportional taxon abundance and extracts the top 10 taxa ranked by both total and unique read assignments.
 
 ## Module 2 — Reference Processing
 
-This module maps reads to one or more reference genomes and produces a final analysis-ready BAM for each individual, along with a comprehensive suite of mapping statistics and coverage metrics. All steps run per individual per reference. The entire module is gated by **`pipeline > reference_processing > execute`** (default `true`).
+This module maps reads to one or more reference genomes and produces a final analysis-ready BAM for each individual, along with a comprehensive suite of mapping statistics and coverage metrics. All steps run per individual per reference. The entire module is gated by **`pipeline.reference_processing.execute`** (default `true`).
 
 ### Reference Preparation
 
@@ -59,17 +59,19 @@ Before mapping can begin, the reference genome is standardised to a `.fa` extens
 
 ### Read Mapping
 
-The merged per-individual reads are mapped to the reference using **BWA mem**. The resulting alignments are immediately sorted by coordinate and indexed. The unsorted BAM is discarded to save disk space. At this point the sorted BAM represents all mapped reads including duplicates, and is used as-is for library complexity estimation before any duplicate removal or damage rescaling.
+The merged per-individual reads are mapped to the reference using a configurable mapper, set via **`pipeline.reference_processing.mapping.settings.mapper`** (default `bwa-aln`). Three mappers are supported: **bwa-aln** (classic seed-and-extend, recommended for short aDNA reads <70 bp), **bwa-mem2** (faster modern aligner, suited for longer reads), and **minimap2** (versatile aligner, uses the `-ax sr` preset for short reads). Additional mapper flags can be supplied via **`settings.mapper_extra_params`**; for `bwa-aln`, the pipeline defaults to `-n 0.01 -k 2 -l 1024 -o 2` (Oliva et al. 2021) if no custom parameters are provided.
+
+The resulting alignments are immediately sorted by coordinate and indexed. The unsorted BAM is discarded to save disk space. At this point the sorted BAM represents all mapped reads including duplicates, and is used as-is for library complexity estimation before any duplicate removal or damage rescaling.
 
 ### Deduplication
 
-PCR and sequencing duplicates are removed using **DeDup**, a tool specifically designed for ancient DNA that correctly handles merged single-stranded reads. Deduplication is controlled by **`pipeline > reference_processing > deduplication > execute`** (default `true`). If disabled, the sorted BAM from mapping is passed directly to subsequent steps.
+PCR and sequencing duplicates are removed using **DeDup**, a tool specifically designed for ancient DNA that correctly handles merged single-stranded reads. Deduplication is controlled by **`pipeline.reference_processing.deduplication.execute`** (default `true`). If disabled, the sorted BAM from mapping is passed directly to subsequent steps.
 
-Because DeDup can be memory-intensive on reference genomes with many contigs, the pipeline uses a divide-and-conquer approach: contigs are grouped into clusters, the sorted BAM is split by cluster, each cluster is deduplicated independently, and the results are merged back together. The cluster size range is configurable via **`deduplication > settings > min_contigs_per_cluster`** (default 10) and **`settings > max_contigs_per_cluster`** (default 500). Each deduplication run produces a histogram and a JSON statistics file; the per-cluster JSON files are merged into a single summary that feeds into downstream QC reporting.
+Because DeDup can be memory-intensive on reference genomes with many contigs, the pipeline uses a divide-and-conquer approach: contigs are grouped into clusters, the sorted BAM is split by cluster, each cluster is deduplicated independently, and the results are merged back together. The maximum cluster size is configurable via **`deduplication.settings.max_contigs_per_cluster`** (default 500). Lowering this value reduces peak memory use at the cost of more merge operations; reducing it is only necessary for large, highly fragmented reference genomes. Each deduplication run produces a histogram and a JSON statistics file; the per-cluster JSON files are merged into a single summary that feeds into downstream QC reporting.
 
 ### DNA Damage Analysis and BAM Rescaling
 
-Ancient DNA is characterised by cytosine deamination, appearing as C→T substitutions at the 5' end and G→A substitutions at the 3' end of reads. This step profiles those damage patterns and optionally corrects for them. It is controlled by **`pipeline > reference_processing > damage_rescaling > execute`** (default `true`).
+Ancient DNA is characterised by cytosine deamination, appearing as C→T substitutions at the 5' end and G→A substitutions at the 3' end of reads. This step profiles those damage patterns and optionally corrects for them. It is controlled by **`pipeline.reference_processing.damage_rescaling.execute`** (default `true`).
 
 The input BAM for this step is selected dynamically: if deduplication was enabled the deduplicated BAM is used, otherwise the sorted BAM from mapping. The tool **mapDamage2** is run on the selected BAM to estimate damage patterns and rescale base quality scores accordingly. The rescaled BAM is then sorted and indexed, and the unsorted rescaled BAM is discarded. The mapDamage2 output directory, including the rescaled BAM and all statistics files, is copied into the summary folder structure to be included in the MultiQC report.
 
@@ -77,11 +79,19 @@ The input BAM for this step is selected dynamically: if deduplication was enable
 
 ### Final BAM
 
-After all optional processing steps, a single canonical `_final.bam` is produced by selecting the most-processed available BAM following a priority chain: rescaled BAM (if **`damage_rescaling > execute`** is true) → deduplicated BAM (if **`deduplication > execute`** is true) → sorted BAM. This ensures all downstream analytics always work from a consistently named file regardless of which steps were enabled.
+After all optional processing steps, a single canonical `_final.bam` is produced by selecting the most-processed available BAM following a priority chain: rescaled BAM (if **`damage_rescaling.execute`** is true) → deduplicated BAM (if **`deduplication.execute`** is true) → sorted BAM. This ensures all downstream analytics always work from a consistently named file regardless of which steps were enabled.
+
+### Filter Unmapped Reads
+
+This optional step is controlled by **`pipeline.reference_processing.filter_unmapped_reads.execute`** (default `false`) and is not needed for standard aDNA workflows. When enabled, it processes the final BAM to handle reads that did not map to the reference. The **`settings.action`** parameter determines the behaviour:
+
+- **`remove`** — writes a mapped-reads-only BAM (`{individual}_{reference}_mapped_only.bam`), reducing file size by stripping unmapped reads.
+- **`extract_fastq`** — writes unmapped reads to a compressed FASTQ (`{individual}_{reference}_unmapped.fastq.gz`), useful for downstream metagenomic screening of non-endogenous content.
+- **`extract_fasta`** — writes unmapped reads to a compressed FASTA (`{individual}_{reference}_unmapped.fasta.gz`).
 
 ### Coverage Analysis
 
-Coverage analysis is controlled by **`pipeline > reference_processing > coverage_analysis > execute`** (default `true`). The final BAM is interrogated using **samtools depth**, which reports per-position depth across the entire reference including zero-coverage sites. A custom Python script then analyses the depth output to compute coverage breadth at multiple depth thresholds and mean depth statistics per individual. All individual results are combined into species-level summary tables, and the data is reformatted into MultiQC-compatible custom content files.
+Coverage analysis is controlled by **`pipeline.reference_processing.coverage_analysis.execute`** (default `true`). The final BAM is interrogated using **samtools depth**, which reports per-position depth across the entire reference including zero-coverage sites. A custom Python script then analyses the depth output to compute coverage breadth at multiple depth thresholds and mean depth statistics per individual. All individual results are combined into species-level summary tables, and the data is reformatted into MultiQC-compatible custom content files.
 
 ### Mapping Statistics
 
@@ -115,11 +125,11 @@ This module quantifies the relative abundance and activity of transposable eleme
 
 Two reference libraries are required: a **feature library** containing the TE (or other feature) sequences of interest, placed under `{species}/raw/dynamics/feature_library/`, and an **SCG library** containing sequences from single-copy conserved genes, placed under `{species}/raw/dynamics/scg/`. Both support `.fna`, `.fasta`, and `.fa` formats.
 
-Before mapping, sequence headers in both libraries are standardised and suffixed to make TE and SCG sequences distinguishable in the alignments — `_fle` is appended to every feature library header, and `_scg` to every SCG header. The two processed libraries are then concatenated into a single combined FASTA, which is indexed with **BWA-MEM2** in preparation for mapping. Multiple feature libraries per species are supported; each produces an entirely independent set of downstream results.
+Before mapping, sequence headers in both libraries are standardised and suffixed to make TE and SCG sequences distinguishable in the alignments — `_fle` is appended to every feature library header, and `_scg` to every SCG header. The two processed libraries are then concatenated into a single combined FASTA, which is indexed in preparation for mapping using the indexer that matches the configured mapper. Multiple feature libraries per species are supported; each produces an entirely independent set of downstream results.
 
 ### Mapping to the Combined Library
 
-Merged per-individual reads (from Module 1) are mapped to the combined SCG + TE library using **BWA-MEM2**. After conversion from SAM to BAM, unmapped reads are immediately discarded to reduce file sizes. The filtered BAM is then sorted and indexed. Intermediate files are cleaned up automatically.
+Merged per-individual reads (from Module 1) are mapped to the combined SCG + TE library using a configurable mapper, set via **`pipeline.dynamics.mapping.settings.mapper`** (default `bwa-aln`). The same three options are available as in reference processing: **bwa-aln**, **bwa-mem2**, and **minimap2**. Additional flags can be supplied via **`settings.mapper_extra_params`**. After conversion from SAM to BAM, unmapped reads are immediately discarded to reduce file sizes. The filtered BAM is then sorted and indexed. Intermediate files are cleaned up automatically.
 
 ### Normalisation
 
@@ -147,15 +157,19 @@ The entire Past Forward aDNA Pipeline is controlled through a single `config/con
 
 Each major processing step can be independently enabled or disabled. The key toggles and their defaults are:
 
-- **`pipeline > raw_reads_processing > adapter_removal > execute`** — enable adapter removal (default `true`)
-- **`pipeline > raw_reads_processing > quality_filtering > execute`** — enable quality filtering (default `true`)
-- **`pipeline > reads_processing > quality_checking_merged > execute`** — enable FastQC on merged reads (default `true`)
-- **`pipeline > raw_reads_processing > contamination_analysis > execute`** — enable contamination analysis (default `true`)
-- **`pipeline > reference_processing > execute`** — enable the entire reference processing module (default **`false`**, must be explicitly set to `true`)
-- **`pipeline > reference_processing > deduplication > execute`** — enable deduplication (default `true`)
-- **`pipeline > reference_processing > damage_rescaling > execute`** — enable mapDamage2 rescaling (default `true`)
-- **`pipeline > reference_processing > coverage_analysis > execute`** — enable coverage and BAM statistics (default `true`)
+- **`pipeline.raw_reads_processing.adapter_removal.execute`** — enable adapter removal (default `true`)
+- **`pipeline.raw_reads_processing.quality_filtering.execute`** — enable quality filtering (default `true`)
+- **`pipeline.raw_reads_processing.quality_checking_merged.execute`** — enable FastQC on merged reads (default `true`)
+- **`pipeline.raw_reads_processing.contamination_analysis.execute`** — enable contamination analysis (default `true`)
+- **`pipeline.reference_processing.execute`** — enable the entire reference processing module (default `true`)
+- **`pipeline.reference_processing.mapping.settings.mapper`** — mapper to use: `bwa-aln` (default), `bwa-mem2`, `minimap2`
+- **`pipeline.reference_processing.deduplication.execute`** — enable deduplication (default `true`)
+- **`pipeline.reference_processing.damage_rescaling.execute`** — enable mapDamage2 rescaling (default `true`)
+- **`pipeline.reference_processing.damage_analysis.execute`** — enable mapDamage2 damage pattern analysis (default `true`)
+- **`pipeline.reference_processing.filter_unmapped_reads.execute`** — enable unmapped read removal or extraction (default `false`)
+- **`pipeline.reference_processing.coverage_analysis.execute`** — enable coverage and BAM statistics (default `true`)
+- **`pipeline.dynamics.mapping.settings.mapper`** — mapper to use for dynamics mapping: `bwa-aln` (default), `bwa-mem2`, `minimap2`
 
-A global **`pipeline > global > skip_existing_files`** option (default `true`) checks for already-completed outputs before the pipeline starts and excludes them from the target list, preventing redundant reprocessing when resuming an interrupted run.
+A global **`pipeline.global.skip_existing_files`** option (default `true`) checks for already-completed outputs before the pipeline starts and excludes them from the target list, preventing redundant reprocessing when resuming an interrupted run.
 
 On every execution the pipeline logs extensive provenance information: timestamp, platform and OS details, Python and Snakemake versions, the active conda environment, the git commit hash of the pipeline code, the full command line used, all config file paths, and the complete loaded configuration. A minimum Snakemake version of 9.9.0 is enforced at startup.
