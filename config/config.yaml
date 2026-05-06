@@ -107,11 +107,11 @@ pipeline:
 
     mapping:
       settings:
-        # Options: "bwa-aln" (default), "bwa-mem2", or "minimap2"
+        # Options: "bwa-aln", "bwa-mem2" (default), or "minimap2"
         # bwa-aln: classic seed-and-extend, well-suited for short aDNA reads
         # bwa-mem2: faster modern reimplementation of bwa-mem
         # minimap2: fast versatile aligner, uses preset "-ax sr" for short reads
-        mapper: "bwa-aln"
+        mapper: "bwa-mem2"
         # Optional: extra parameters passed directly to the mapper
         # For bwa-aln, defaults to "-n 0.01 -k 2 -l 1024 -o 2" (Oliva et al. 2021, 10.1093/bib/bbab076)
         #mapper_extra_params: ""
@@ -164,11 +164,11 @@ pipeline:
     execute: true
     mapping:
       settings:
-        # Options: "bwa-aln" (default), "bwa-mem2", or "minimap2"
+        # Options: "bwa-mem2" (default), "bwa-aln" or "minimap2"
         # bwa-aln: classic seed-and-extend, well-suited for short aDNA reads
         # bwa-mem2: faster modern reimplementation of bwa-mem
         # minimap2: fast versatile aligner, uses preset "-ax sr" for short reads
-        mapper: "bwa-aln"
+        mapper: "bwa-mem2"
         # Optional: extra parameters passed directly to the mapper
         # For bwa-aln, defaults to "-n 0.01 -k 2 -l 1024 -o 2" (Oliva et al. 2021, 10.1093/bib/bbab076)
         #mapper_extra_params: ""

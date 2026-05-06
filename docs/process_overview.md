@@ -59,7 +59,7 @@ Before mapping can begin, the reference genome is standardised to a `.fa` extens
 
 ### Read Mapping
 
-The merged per-individual reads are mapped to the reference using a configurable mapper, set via **`pipeline.reference_processing.mapping.settings.mapper`** (default `bwa-aln`). Three mappers are supported: **bwa-aln** (classic seed-and-extend, recommended for short aDNA reads <70 bp), **bwa-mem2** (faster modern aligner, suited for longer reads), and **minimap2** (versatile aligner, uses the `-ax sr` preset for short reads). Additional mapper flags can be supplied via **`settings.mapper_extra_params`**; for `bwa-aln`, the pipeline defaults to `-n 0.01 -k 2 -l 1024 -o 2` (Oliva et al. 2021) if no custom parameters are provided.
+The merged per-individual reads are mapped to the reference using a configurable mapper, set via **`pipeline.reference_processing.mapping.settings.mapper`** (default `bwa-mem2`). Three mappers are supported: **bwa-aln** (classic seed-and-extend, recommended for short aDNA reads <70 bp), **bwa-mem2** (faster modern aligner, suited for longer reads), and **minimap2** (versatile aligner, uses the `-ax sr` preset for short reads). Additional mapper flags can be supplied via **`settings.mapper_extra_params`**; for `bwa-aln`, the pipeline defaults to `-n 0.01 -k 2 -l 1024 -o 2` (Oliva et al. 2021) if no custom parameters are provided.
 
 The resulting alignments are immediately sorted by coordinate and indexed. The unsorted BAM is discarded to save disk space. At this point the sorted BAM represents all mapped reads including duplicates, and is used as-is for library complexity estimation before any duplicate removal or damage rescaling.
 
@@ -129,7 +129,7 @@ Before mapping, sequence headers in both libraries are standardised and suffixed
 
 ### Mapping to the Combined Library
 
-Merged per-individual reads (from Module 1) are mapped to the combined SCG + TE library using a configurable mapper, set via **`pipeline.dynamics.mapping.settings.mapper`** (default `bwa-aln`). The same three options are available as in reference processing: **bwa-aln**, **bwa-mem2**, and **minimap2**. Additional flags can be supplied via **`settings.mapper_extra_params`**. After conversion from SAM to BAM, unmapped reads are immediately discarded to reduce file sizes. The filtered BAM is then sorted and indexed. Intermediate files are cleaned up automatically.
+Merged per-individual reads (from Module 1) are mapped to the combined SCG + TE library using a configurable mapper, set via **`pipeline.dynamics.mapping.settings.mapper`** (default `bwa-mem2`). The same three options are available as in reference processing: **bwa-aln**, **bwa-mem2**, and **minimap2**. Additional flags can be supplied via **`settings.mapper_extra_params`**. After conversion from SAM to BAM, unmapped reads are immediately discarded to reduce file sizes. The filtered BAM is then sorted and indexed. Intermediate files are cleaned up automatically.
 
 ### Normalisation
 
@@ -162,13 +162,13 @@ Each major processing step can be independently enabled or disabled. The key tog
 - **`pipeline.raw_reads_processing.quality_checking_merged.execute`** — enable FastQC on merged reads (default `true`)
 - **`pipeline.raw_reads_processing.contamination_analysis.execute`** — enable contamination analysis (default `true`)
 - **`pipeline.reference_processing.execute`** — enable the entire reference processing module (default `true`)
-- **`pipeline.reference_processing.mapping.settings.mapper`** — mapper to use: `bwa-aln` (default), `bwa-mem2`, `minimap2`
+- **`pipeline.reference_processing.mapping.settings.mapper`** — mapper to use: `bwa-mem2` (default), `bwa-aln`, `minimap2`
 - **`pipeline.reference_processing.deduplication.execute`** — enable deduplication (default `true`)
 - **`pipeline.reference_processing.damage_rescaling.execute`** — enable mapDamage2 rescaling (default `true`)
 - **`pipeline.reference_processing.damage_analysis.execute`** — enable mapDamage2 damage pattern analysis (default `true`)
 - **`pipeline.reference_processing.filter_unmapped_reads.execute`** — enable unmapped read removal or extraction (default `false`)
 - **`pipeline.reference_processing.coverage_analysis.execute`** — enable coverage and BAM statistics (default `true`)
-- **`pipeline.dynamics.mapping.settings.mapper`** — mapper to use for dynamics mapping: `bwa-aln` (default), `bwa-mem2`, `minimap2`
+- **`pipeline.dynamics.mapping.settings.mapper`** — mapper to use for dynamics mapping: `bwa-mem2` (default), `bwa-aln`, `minimap2`
 
 A global **`pipeline.global.skip_existing_files`** option (default `true`) checks for already-completed outputs before the pipeline starts and excludes them from the target list, preventing redundant reprocessing when resuming an interrupted run.
 

@@ -3,7 +3,7 @@
 # Snakemake rules
 ####################################################
 _dyn_settings     = config.get("pipeline", {}).get("dynamics", {}).get("mapping", {}).get("settings", {})
-_dyn_mapper       = _dyn_settings.get("mapper", "bwa-aln")
+_dyn_mapper       = _dyn_settings.get("mapper", "bwa-mem2")
 _BWA_ALN_DEFAULTS = "-n 0.01 -k 2 -l 1024 -o 2"  # Oliva et al. 2021 (10.1093/bib/bbab076)
 _dyn_mapper_extra = _dyn_settings.get("mapper_extra_params", _BWA_ALN_DEFAULTS if _dyn_mapper == "bwa-aln" else "")
 
