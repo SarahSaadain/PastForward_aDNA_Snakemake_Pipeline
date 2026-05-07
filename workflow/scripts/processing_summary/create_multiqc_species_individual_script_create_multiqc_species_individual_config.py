@@ -176,7 +176,7 @@ def generate_multiqc_config_for_species_and_individual(species, individual, logo
         "\n"
         "sp:\n"
         "   ecmsd_unique_taxa:\n"
-        "       fn: '*_Mito_summary_genus_hits_combined.tsv'\n"
+        "       fn: '*_Mito_summary_hits_combined.tsv'\n"
         "   endogenous_total:\n"
         "       fn: '*_reads_processing_summary.tsv'\n"
         "   endogenous_stacked:\n"

@@ -133,7 +133,15 @@ Quality checking, adapter removal, quality filtering, merging, contamination ana
 
 Both tools operate on quality-filtered reads and can be toggled independently.
 
-**ECMSD** — maps reads against a curated mitochondrial reference database; no additional settings required.
+**ECMSD** — maps reads against a curated mitochondrial reference database.
+
+| Setting | Default | Description |
+|---|---|---|
+| `tools.ecmsd.settings.database` | — | Path to the ECMSD database folder. If omitted, the pipeline auto-creates a database at `resources/ecmsd_database` via `ECMSD --create-db`. |
+| `tools.ecmsd.settings.Binsize` | `1000` | Reference genome bin size for coverage calculation. |
+| `tools.ecmsd.settings.RMUS_threshold` | `0.15` | Minimum Relative Mapping Uniqueness Score for a taxon to be reported. |
+| `tools.ecmsd.settings.mapping_quality` | `20` | Minimum mapping quality score to include a read. |
+| `tools.ecmsd.settings.taxonomic_hierarchy` | `species` | Taxonomic level at which to aggregate and report results. Options: `species`, `genus`, `family`, `order`. |
 
 **Centrifuge** — k-mer-based taxonomic classification against a user-provided database.
 
@@ -162,6 +170,7 @@ Removes PCR and sequencing duplicates using DeDup. Default: **off**.
 
 | Setting | Default | Description |
 |---|---|---|
+| `settings.min_contigs_per_cluster` | `10` | Minimum number of contigs grouped into a cluster. Small contigs below this count are merged together before deduplication. |
 | `settings.max_contigs_per_cluster` | `500` | Maximum number of contigs grouped per deduplication cluster. Lower values use less memory but increase runtime. Reduce (e.g. to 100) only for large, highly fragmented reference genomes. |
 
 #### `filter_unmapped_reads`
@@ -258,6 +267,17 @@ pipeline:
       tools:
         ecmsd:
           execute: true
+          settings:
+            # Optional: path to ECMSD database folder (auto-created if not set)
+            #database: "resources/ecmsd_database"
+            # Bin size for coverage calculation (Default: 1000)
+            Binsize: 1000
+            # Minimum RMUS for a taxon to be reported (Default: 0.15)
+            RMUS_threshold: 0.15
+            # Minimum mapping quality to include a read (Default: 20)
+            mapping_quality: 20
+            # Taxonomic level for results: "species" (default), "genus", "family", "order"
+            taxonomic_hierarchy: "species"
         centrifuge:
           execute: true
           settings:
@@ -286,6 +306,8 @@ pipeline:
       # Default: true — set to false only if library complexity is very low
       execute: true
       settings:
+        # Minimum contigs per deduplication cluster (Default: 10)
+        min_contigs_per_cluster: 10
         # Maximum contigs per deduplication cluster (Default: 500)
         max_contigs_per_cluster: 500
 

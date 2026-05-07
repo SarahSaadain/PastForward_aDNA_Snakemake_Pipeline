@@ -3,13 +3,13 @@ import pandas as pd
 import os
 
 # Snakemake input/output/params
-genus_file = snakemake.input[0]        # Genus proportions file
+proportions_file = snakemake.input[0]        # Proportions file
 total_reads_file = snakemake.input[1] # File containing total number of reads
 output_tsv = snakemake.output[0]
 sample_name = snakemake.params.sample  # 
 
-# Read genus file
-df = pd.read_csv(genus_file, sep='\t')
+# Read proportions file
+df = pd.read_csv(proportions_file, sep='\t')
 
 # Read total reads
 with open(total_reads_file) as f:

@@ -633,9 +633,57 @@
                 <p style="font-size:.72rem;color:var(--text-muted);line-height:1.5">
                   Maps reads against a curated <strong>mitochondrial reference database</strong> and reports the proportional
                   contribution of different taxa. Configurable binning resolution, RMUS threshold, mapping quality cutoff,
-                  and taxonomic level (default: genus). Per-sample results are merged per individual.
+                  and taxonomic level (default: species). Per-sample results are merged per individual.
                   <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off if ECMSD is not installed or configured on your system. Well-suited for vertebrate aDNA where mitochondrial contamination is the primary concern.</div>
                 </p>
+                <div class="opt-group">
+                  <div class="opt-header" id="ca_ecmsd_db_hdr">
+                    <input type="checkbox" id="ca_ecmsd_db_en" onchange="optToggle('ca_ecmsd_db_en','ca_ecmsd_db_body','ca_ecmsd_db_hdr'); render()">
+                    <label for="ca_ecmsd_db_en">Custom database path</label>
+                    <span class="opt-tag">optional</span>
+                  </div>
+                  <div class="opt-body" id="ca_ecmsd_db_body">
+                    <div class="field" style="margin-top:8px">
+                      <label>Database Path</label>
+                      <input type="text" id="ca_ecmsd_db" value="" placeholder="resources/ecmsd_database" oninput="render()">
+                      <p class="hint">Path to the ECMSD database folder. If not set, the pipeline auto-creates a database at <code>resources/ecmsd_database</code> via <code>ECMSD --create-db</code>.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="opt-group">
+                  <div class="opt-header" id="ca_ecmsd_adv_hdr">
+                    <input type="checkbox" id="ca_ecmsd_adv_en" onchange="optToggle('ca_ecmsd_adv_en','ca_ecmsd_adv_body','ca_ecmsd_adv_hdr'); render()">
+                    <label for="ca_ecmsd_adv_en">Advanced settings</label>
+                    <span class="opt-tag">optional</span>
+                  </div>
+                  <div class="opt-body" id="ca_ecmsd_adv_body">
+                    <div class="field" style="margin-top:8px">
+                      <label>Bin size</label>
+                      <input type="number" id="ca_ecmsd_binsize" value="1000" min="1" oninput="render()">
+                      <p class="hint">Default: 1000. Reference genome bin size for coverage calculation.</p>
+                    </div>
+                    <div class="field">
+                      <label>RMUS threshold</label>
+                      <input type="number" id="ca_ecmsd_rmus" value="0.15" min="0" max="1" step="0.01" oninput="render()">
+                      <p class="hint">Default: 0.15. Minimum Relative Mapping Uniqueness Score for a taxon to be reported.</p>
+                    </div>
+                    <div class="field">
+                      <label>Mapping quality</label>
+                      <input type="number" id="ca_ecmsd_mq" value="20" min="0" max="60" oninput="render()">
+                      <p class="hint">Default: 20. Minimum mapping quality score to include a read.</p>
+                    </div>
+                    <div class="field">
+                      <label>Taxonomic hierarchy</label>
+                      <select id="ca_ecmsd_taxhier" onchange="render()">
+                        <option value="species">species</option>
+                        <option value="genus">genus</option>
+                        <option value="family">family</option>
+                        <option value="order">order</option>
+                      </select>
+                      <p class="hint">Default: species. Taxonomic level at which to aggregate and report results.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- Centrifuge -->
@@ -800,6 +848,11 @@
               <div class="when-hint"><span class="def-pill on">Default: ON</span>Leave on for most aDNA analyses — PCR duplicates inflate apparent read depth and bias variant calling. Turn off only if library complexity is very low (duplicate removal would leave too few reads) or if you specifically need the pre-dedup BAM for a downstream tool.</div>
             </div>
             <div class="subsection-body open">
+              <div class="field">
+                <label>Min Contigs per Cluster</label>
+                <input type="number" id="dedup_min" value="10" min="1" oninput="render()">
+                <p class="hint">Default: 10. Minimum number of contigs grouped into a cluster. Small contigs below this count are merged together before deduplication.</p>
+              </div>
               <div class="field">
                 <label>Max Contigs per Cluster</label>
                 <input type="number" id="dedup_max" value="500" min="1" oninput="render()">
@@ -1209,6 +1262,16 @@ function buildYAML() {
   p(6, 'tools:');
   p(8, 'ecmsd:');
   kv(10, 'execute', gb('ca_ecmsd_exec'));
+  if (gb('ca_ecmsd_db_en') || gb('ca_ecmsd_adv_en')) {
+    p(10, 'settings:');
+    if (gb('ca_ecmsd_db_en') && gv('ca_ecmsd_db').trim()) kv(12, 'database', gv('ca_ecmsd_db'));
+    if (gb('ca_ecmsd_adv_en')) {
+      kv(12, 'Binsize', gn('ca_ecmsd_binsize'));
+      kv(12, 'RMUS_threshold', parseFloat(gv('ca_ecmsd_rmus')));
+      kv(12, 'mapping_quality', gn('ca_ecmsd_mq'));
+      kv(12, 'taxonomic_hierarchy', gv('ca_ecmsd_taxhier'));
+    }
+  }
   p(8, 'centrifuge:');
   kv(10, 'execute', gb('ca_cen_exec'));
   p(10, 'settings:');
@@ -1231,6 +1294,7 @@ function buildYAML() {
   p(4, 'deduplication:');
   kv(6, 'execute', gb('dedup_exec'));
   p(6, 'settings:');
+  kv(8, 'min_contigs_per_cluster', gn('dedup_min'));
   kv(8, 'max_contigs_per_cluster', gn('dedup_max'));
   p(0, '');
   p(4, 'damage_rescaling:');
@@ -1426,7 +1490,18 @@ function populateForm(c) {
   const cen = cat.centrifuge || {};
   const ces = cen.settings || {};
   sb('ca_exec', ca.execute); dot('ca_exec','d_ca');
-  sb('ca_ecmsd_exec', (cat.ecmsd||{}).execute);
+  const ecmsd_tool = cat.ecmsd || {};
+  const ecmsd_s = ecmsd_tool.settings || {};
+  sb('ca_ecmsd_exec', ecmsd_tool.execute);
+  if (ecmsd_s.database !== undefined) { setOpt('ca_ecmsd_db_en','ca_ecmsd_db_body','ca_ecmsd_db_hdr',true); sv('ca_ecmsd_db',ecmsd_s.database); }
+  else setOpt('ca_ecmsd_db_en','ca_ecmsd_db_body','ca_ecmsd_db_hdr',false);
+  if (ecmsd_s.Binsize !== undefined || ecmsd_s.RMUS_threshold !== undefined || ecmsd_s.mapping_quality !== undefined || ecmsd_s.taxonomic_hierarchy !== undefined) {
+    setOpt('ca_ecmsd_adv_en','ca_ecmsd_adv_body','ca_ecmsd_adv_hdr',true);
+    if (ecmsd_s.Binsize !== undefined) sv('ca_ecmsd_binsize', ecmsd_s.Binsize);
+    if (ecmsd_s.RMUS_threshold !== undefined) sv('ca_ecmsd_rmus', ecmsd_s.RMUS_threshold);
+    if (ecmsd_s.mapping_quality !== undefined) sv('ca_ecmsd_mq', ecmsd_s.mapping_quality);
+    if (ecmsd_s.taxonomic_hierarchy !== undefined) sv('ca_ecmsd_taxhier', ecmsd_s.taxonomic_hierarchy);
+  } else setOpt('ca_ecmsd_adv_en','ca_ecmsd_adv_body','ca_ecmsd_adv_hdr',false);
   sb('ca_cen_exec', cen.execute);
   sb('ca_human', ces.include_human_taxid);
   if (ces.conda_env !== undefined) { setOpt('ca_conda_en','ca_conda_body','ca_conda_hdr',true); sv('ca_conda',ces.conda_env); }
@@ -1443,6 +1518,7 @@ function populateForm(c) {
   else setOpt('rp_xp_en','rp_xp_body','rp_xp_hdr',false);
   const ded = rp.deduplication || {};
   sb('dedup_exec', ded.execute); dot('dedup_exec','d_dedup');
+  sv('dedup_min', (ded.settings||{}).min_contigs_per_cluster);
   sv('dedup_max', (ded.settings||{}).max_contigs_per_cluster);
   sb('dr_exec',  (rp.damage_rescaling||{}).execute);              dot('dr_exec','d_dr');
   const fur = rp.filter_unmapped_reads||{};
@@ -1496,7 +1572,7 @@ function resetDefaults() {
         contamination_analysis: {
           execute: true,
           tools: {
-            ecmsd: { execute: true },
+            ecmsd: { execute: true, settings: { Binsize: 1000, RMUS_threshold: 0.15, mapping_quality: 20, taxonomic_hierarchy: 'species' } },
             centrifuge: { execute: true, settings: { include_human_taxid: true } }
           }
         },
@@ -1505,7 +1581,7 @@ function resetDefaults() {
       reference_processing: {
         execute: true,
         mapping: { settings: { mapper: 'bwa-aln' } },
-        deduplication: { execute: false, settings: { max_contigs_per_cluster: 500 } },
+        deduplication: { execute: false, settings: { min_contigs_per_cluster: 10, max_contigs_per_cluster: 500 } },
         damage_rescaling: { execute: true },
         filter_unmapped_reads: { execute: false, settings: { action: 'remove' } },
         damage_analysis: { execute: true },

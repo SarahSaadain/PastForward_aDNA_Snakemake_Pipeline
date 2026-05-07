@@ -1,3 +1,6 @@
+# Python helper functions for rules
+# Naming of functions: <rule_name>_<rule_parameter>[_<rule_subparameter>]>
+####################################################
 
 def get_ecmsd_database(wildcards):
     configured_db = config.get("pipeline", {}).get("raw_reads_processing", {}).get("contamination_analysis", {}).get("tools", {}).get("ecmsd", {}).get("settings", {}).get("database")
@@ -5,6 +8,20 @@ def get_ecmsd_database(wildcards):
         return configured_db
     else:
         return "resources/ecmsd_database"
+
+def get_ecmsd_taxonomic_hierarchy():
+     return config.get("pipeline", {}).get("raw_reads_processing", {}).get("contamination_analysis", {}).get("tools", {}).get("ecmsd", {}).get("settings", {}).get("taxonomic_hierarchy", "species")
+
+_ecmsd_taxonomic_hierarchy = get_ecmsd_taxonomic_hierarchy()
+
+_ecmsd_tax_hierarchy_readlength_output        = f"{{species}}/results/contamination_analysis/ecmsd/{{individual}}/{{sample}}/mapping/{{sample}}_Mito_summary_{_ecmsd_taxonomic_hierarchy}_ReadLengths.png"
+_ecmsd_tax_hierarchy_proportions_png_output   = f"{{species}}/results/contamination_analysis/ecmsd/{{individual}}/{{sample}}/mapping/{{sample}}_Mito_summary_{_ecmsd_taxonomic_hierarchy}_Proportions.png"
+_ecmsd_tax_hierarchy_proportions_txt_output   = f"{{species}}/results/contamination_analysis/ecmsd/{{individual}}/{{sample}}/mapping/{{sample}}_Mito_summary_{_ecmsd_taxonomic_hierarchy}_proportions.txt"
+_ecmsd_tax_hierarchy_summary_txt_output       = f"{{species}}/results/contamination_analysis/ecmsd/{{individual}}/{{sample}}/mapping/{{sample}}_Mito_summary_{_ecmsd_taxonomic_hierarchy}.txt"
+
+####################################################
+# Snakemake rules
+####################################################
 
 rule ecmsd_database_setup:
     output:
@@ -23,13 +40,13 @@ rule ecmsd_analyze_contamination:
         fastq = "{species}/processed/reads/reads_quality_filtered/{sample}_quality_filtered_final.fastq.gz",
         database = get_ecmsd_database
     output:
-        summary         = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito_summary.txt",
-        paf             = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito.paf.gz",
-        RMUS            = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito_summary.RMUS.txt",
-        proportions     = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito_summary_genus_proportions.txt",
-        genus           = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito_summary_genus.txt",
-        readlength      = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito_summary_genus_ReadLengths.png",
-        proportions_png = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito_summary_genus_Proportions.png",
+        summary                         = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito_summary.txt",
+        paf                             = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito.paf.gz",
+        RMUS                            = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito_summary.RMUS.txt",
+        tax_hierarchy_proportions       = _ecmsd_tax_hierarchy_proportions_txt_output,
+        tax_hierarchy_summary           = _ecmsd_tax_hierarchy_summary_txt_output,
+        tax_hierarchy_readlength        = _ecmsd_tax_hierarchy_readlength_output,
+        tax_hierarchy_proportions_png   = _ecmsd_tax_hierarchy_proportions_png_output,
     params:
         binsize = config.get("pipeline", {}).get("raw_reads_processing", {}).get("contamination_analysis", {}).get("tools", {}).get("ecmsd", {}).get("settings", {}).get("Binsize", 1000),
         rmus_threshold = config.get("pipeline", {}).get("raw_reads_processing", {}).get("contamination_analysis", {}).get("tools", {}).get("ecmsd", {}).get("settings", {}).get("RMUS_threshold", 0.15),
@@ -64,19 +81,21 @@ rule ecmsd_analyze_contamination:
 
 rule ecmsd_merge_hits_per_individual:
     input:
-        lambda wildcards: expand("{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito_summary_genus_proportions.txt",
+        lambda wildcards: expand(_ecmsd_tax_hierarchy_proportions_txt_output,
             sample=get_samples_for_species_individual(wildcards.species, wildcards.individual),
             species=wildcards.species,
             individual=wildcards.individual
             )
     output:
-        "{species}/results/contamination_analysis/ecmsd/{individual}_Mito_summary_genus_hits_combined.tsv"
+        "{species}/results/contamination_analysis/ecmsd/{individual}_Mito_summary_hits_combined.tsv"
+    params:
+        taxonomic_hierarchy = _ecmsd_taxonomic_hierarchy
     script:
         "../../../../scripts/raw_reads/analytics/contamination/check_contamination_ecmsd_script_ecmsd_merge_hits_per_individual.py"
 
 rule ecmsd_analyze_proportions:
     input:
-        report = "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/mapping/{sample}_Mito_summary_genus_proportions.txt",
+        report = _ecmsd_tax_hierarchy_proportions_txt_output,
         count_reads = "{species}/processed/reads/statistics/{sample}_quality_filtered.count"
     output:
         "{species}/results/contamination_analysis/ecmsd/{individual}/{sample}/pipeline/{sample}_ecmsd_proportions.tsv"
