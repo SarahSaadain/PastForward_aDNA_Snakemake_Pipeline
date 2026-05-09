@@ -33,7 +33,7 @@ if(!debug)
     outfile <- args[2]
 }else{
   rm(list = ls())
-  file      <- "/Users/robertkofler/gh/seqvista/test2/mdg1#LTR_Gypsy_te"
+  file      <- "/Users/robertkofler/gh/teplotter/test2/mdg1#LTR_Gypsy_te"
   outdir    <- tempdir()
   log_scale <- FALSE
   log_auto_threshold <- NULL
@@ -62,6 +62,11 @@ ambcov <- data |> filter(X3== "ambcov")
 ambcov <- ambcov |> rename(seqid=X1,sampleid=X2,feature=X3,pos=X4,ambcovy=X5) 
 ambcov <- ambcov |> mutate(pos = as.double(pos),ambcovy= as.double(ambcovy))
 
+# split of masked coverage
+mcov <- data |> filter(X3== "mcov")
+mcov <- mcov |> rename(seqid=X1,sampleid=X2,feature=X3,pos=X4,mcovy=X5)
+mcov <- mcov |> mutate(pos = as.double(pos),mcovy= as.double(mcovy))
+
 # split of snps
 snp <- data |> filter(X3=="snp")
 snp <- snp |> rename(seqid=X1,sampleid=X2,feature=X3,pos=X4,refc=X5,base=X6,count=X7) 
@@ -77,16 +82,8 @@ insertion <- data |> filter(X3=="ins")
 insertion <- insertion |> rename(seqid=X1,sampleid=X2,feature=X3,pos=X4,length=X5,count=X6) 
 insertion <- insertion |> mutate(pos = as.double(pos), length= as.double(length), count= as.double(count))
 
-# prepare insertions
-# filter min size of insertion
-deletion<- deletion |> filter(end-start>mindeletion)
-# size of scaling
-deletion$scale=log(deletion$count)
-
-# prepare insertions
-# filter min size of insertion
+# filter minimum deletion size and scale by count
 deletion <- deletion |> filter(end - start > mindeletion)
-# size of scaling
 deletion$scale = log(deletion$count)
 
 # after cov is loaded, resolve auto log threshold
@@ -104,14 +101,16 @@ if (!is.null(log_auto_threshold)) {
 if (log_scale) {
   cov      <- cov      |> mutate(covy     = log10(covy     + 1))
   ambcov   <- ambcov   |> mutate(ambcovy  = log10(ambcovy  + 1))
+  mcov     <- mcov     |> mutate(mcovy    = log10(mcovy    + 1))
   deletion <- deletion |> mutate(startcov = log10(startcov + 1),
                                   endcov   = log10(endcov   + 1))
 }
 
 theme_set(theme_bw())
 plo <- ggplot() +
-  geom_polygon(data = cov,    mapping = aes(x = pos, y = covy),    fill = 'darkgrey',  color = 'darkgrey') +
-  geom_polygon(data = ambcov, aes(x = pos, y = ambcovy),           fill = 'lightgrey', color = 'lightgrey') +
+  geom_area(data = cov,    aes(x = pos, y = covy),   fill = 'darkgrey',  color = 'darkgrey') +
+  geom_area(data = ambcov, aes(x = pos, y = ambcovy), fill = 'lightgrey', color = 'lightgrey') +
+  geom_area(data = mcov,   aes(x = pos, y = mcovy),   fill = 'aliceblue', color = 'aliceblue') +
   geom_curve(data = deletion, mapping = aes(x = start, y = startcov, xend = end, yend = endcov, linewidth = scale), curvature = -0.15, ncp = 5, show.legend = FALSE) +
   scale_linewidth(range = c(0.3, 2)) + xlab("position") + ylab("coverage")
 
@@ -159,9 +158,22 @@ if (log_scale) {
     ylab("coverage (log10)") 
 
 } else {
+  snp_stacked_lin <- snp |>
+    group_by(seqid, sampleid, pos) |>
+    arrange(base, .by_group = TRUE) |>
+    mutate(
+      ymax = cumsum(count),
+      ymin = cumsum(count) - count
+    ) |>
+    ungroup()
+
   plo <- plo +
-    geom_bar(data = snp,       aes(x = pos, y = count, fill = base), stat = "identity", width = 2) +
-    geom_bar(data = insertion, aes(x = pos, y = count),              stat = "identity", color = "grey50", width = 4)
+    geom_rect(data = snp_stacked_lin,
+              aes(xmin = pos - 1, xmax = pos + 1, ymin = ymin, ymax = ymax, fill = base)) +
+    geom_bar(data = insertion, aes(x = pos, y = count),
+             stat = "identity", color = "grey50", width = 4) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
+
 }
 
 # legend position and style; 
@@ -195,13 +207,8 @@ if (nplots>1) {
   height<-2*(nplots)
 }
 
-# heigt max 50
-if (height>50) {
-  height<-50
-}
-
 if(!debug){
-  ggsave(outfile, plot = plo, width = width, height = height, dpi = dpi, limitsize = FALSE)
+  ggsave(outfile, plot = plo, width = width, height = height, dpi = dpi)
 }else{
   plot(plo)
 }

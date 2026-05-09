@@ -32,7 +32,7 @@ rule determine_seqvista_of_individual_bam_to_so:
         bam="{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.sorted.bam",
         fasta="{species}/processed/dynamics/lib/{feature_library}_and_scg.suffixed.fasta"
     output:
-        coverage="{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.tsv"
+        coverage=temp("{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.tsv")
     log:
         "{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_bam2so.log"
     conda:
@@ -48,7 +48,7 @@ rule normalize_seqvista_of_individual:
     input:
         coverage="{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.tsv"
     output:
-        normalized="{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.normalized.tsv"
+        normalized=temp("{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.normalized.tsv")
     conda:
         "../../envs/python_and_r.yaml"
     message:
@@ -62,7 +62,7 @@ rule estimate_seqvista_of_individual:
     input:
         coverage="{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.tsv"
     output:
-        estimation="{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_estimation.tsv"
+        estimation=temp("{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_estimation.tsv")
     conda:
         "../../envs/python_and_r.yaml"
     message:
@@ -76,7 +76,7 @@ rule prepare_seqvista_visualization_of_individual:
     input:
         coverage="{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.normalized.tsv",
     output:
-        plotable=directory("{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_plotable")
+        plotable=temp(directory("{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_plotable"))
     conda:
         "../../envs/python_and_r.yaml"
     message:
@@ -90,6 +90,41 @@ rule prepare_seqvista_visualization_of_individual:
             --sample-id {wildcards.individual}
         """
 
+rule calculate_seqvista_normalized_stats_of_individual:
+    input:
+        coverage="{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.normalized.tsv",
+    output:
+        stats="{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.normalized.stats.tsv"
+    conda:
+        "../../envs/python_and_r.yaml"
+    message:
+        "Calculating normalized stats for {wildcards.individual} of {wildcards.species}."
+    shell:
+        """
+        python workflow/scripts/dynamics/seqvista/so2stats.py \
+            --so {input.coverage} \
+            --outfile {output.stats} \
+            --sample-id {wildcards.individual}
+        """
+
+rule compare_seqvista_stats_accross_individuals_of_species:
+    input:
+        lambda wildcards: expand(
+            "{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.normalized.stats.tsv",
+            species=wildcards.species,
+            feature_library=wildcards.feature_library,
+            individual=get_individuals_for_species(wildcards.species))
+    output:
+        stats="{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_stats_comparison.tsv",
+    conda:
+        "../../envs/python_and_r.yaml"
+    message:
+        "Running seqvista  for {wildcards.species}."
+    shell:
+        """
+        python workflow/scripts/dynamics/seqvista/compare_stats.py --stats {input} --outfile {output.stats}
+        """
+
 rule run_seqvista_visualization_of_individual:
     input:
         "{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_plotable"
@@ -97,7 +132,7 @@ rule run_seqvista_visualization_of_individual:
         directory("{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_plots")
     conda:
         "../../envs/python_and_r.yaml"
-    threads: 10
+    threads: 15
     params:
         log_threshhold = 25
     message:
@@ -115,15 +150,65 @@ rule run_seqvista_visualization_of_species:
             feature_library=wildcards.feature_library,
             individual=get_individuals_for_species(wildcards.species))
     output:
-        directory("{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_plots_facet")
+        plots=directory("{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_plots_facet"),
+        merged=temp(directory("{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_plotables_facet")),
     conda:
         "../../envs/python_and_r.yaml"
-    threads: 10
+    threads: 15
     params:
         log_threshhold = 25
     message:
         "Running seqvista visualization for {wildcards.species}."
     shell:
         """
-        python workflow/scripts/dynamics/seqvista/run_plotable.py --folders {input} --outdir {output} --log {params.log_threshhold} --threads {threads}
+        python workflow/scripts/dynamics/seqvista/run_plotable.py --folders {input} --outdir {output.plots} --merged-dir {output.merged} --log {params.log_threshhold} --threads {threads}
         """
+
+
+rule compress_seqvista_coverage_of_individual:
+    input:
+        source = "{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.tsv",
+    output:
+        target = "{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.tsv.gz"
+    threads: 4
+    conda:
+        "../../envs/pigz.yaml"
+    message: "Compressing SeqVista coverage output for {wildcards.individual} of {wildcards.species}"
+    shell:
+        "pigz -p {threads} -c {input.source} > {output.target}"
+
+rule compress_seqvista_coverage_normalized_of_individual:
+    input:
+        source = "{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.normalized.tsv",
+    output:
+        target = "{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.normalized.tsv.gz"
+    threads: 4
+    conda:
+        "../../envs/pigz.yaml"
+    message: "Compressing SeqVista normalized output for {wildcards.individual} of {wildcards.species}"
+    shell:
+        "pigz -p {threads} -c {input.source} > {output.target}"
+
+rule compress_seqvista_plotable_of_individual:
+    input:
+        source = "{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_plotable",
+    output:
+        target = "{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_plotable.tar.gz"
+    threads: 4
+    conda:
+        "../../envs/pigz.yaml"
+    message: "Compressing SeqVista plotables of individual for {wildcards.individual} of {wildcards.species}"
+    shell:
+        "tar -c {input.source} | pigz -p {threads} > {output.target}"
+
+rule compress_seqvista_plotable_of_species:
+    input:
+        source = "{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_plotables_facet"
+    output:
+        target = "{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_plotables_facet.tar.gz"
+    threads: 4
+    conda:
+        "../../envs/pigz.yaml"
+    message: "Compressing SeqVista plotables of species for {wildcards.species}"
+    shell:
+        "tar -c {input.source} | pigz -p {threads} > {output.target}"

@@ -11,6 +11,7 @@ Single folder mode:
 Multi-folder (merged/facet) mode:
     python run_plotable.py --folders Dmel01_plottable Dmel02_plottable --output merged_results/
     python run_plotable.py --folders Dmel01_plottable Dmel02_plottable --output merged_results/ --log
+    python run_plotable.py --folders Dmel01_plottable Dmel02_plottable --output merged_results/ --merged-dir kept_merges/
 
 Authors
 -------
@@ -19,6 +20,7 @@ Authors
 """
 
 import argparse
+import contextlib
 import logging
 import subprocess
 import sys
@@ -89,7 +91,8 @@ def single_folder_mode(folder: Path, output: Path, log_arg: str | None = None, t
     log.info("Done.")
 
 
-def multi_folder_mode(folders: list[Path], output: Path, log_arg: str | None = None, threads: int = 1):
+def multi_folder_mode(folders: list[Path], output: Path, log_arg: str | None = None, threads: int = 1,
+                      merged_dir: Path | None = None):
     """Merge same-named .plotable files across folders and plot each merged file."""
     output.mkdir(parents=True, exist_ok=True)
 
@@ -112,8 +115,15 @@ def multi_folder_mode(folders: list[Path], output: Path, log_arg: str | None = N
              len(all_names), n_folders, threads)
     capture = threads > 1
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_path = Path(tmpdir)
+    if merged_dir is not None:
+        merged_dir.mkdir(parents=True, exist_ok=True)
+        log.info("Merged .plotable files will be saved to: %s", merged_dir)
+        tmp_ctx = contextlib.nullcontext(merged_dir)
+    else:
+        tmp_ctx = tempfile.TemporaryDirectory()
+
+    with tmp_ctx as tmp:
+        tmp_path = Path(tmp)
 
         def _merge_and_plot(name_paths):
             name, paths = name_paths
@@ -180,6 +190,17 @@ def main():
     )
 
     parser.add_argument(
+        "--merged-dir",
+        type=Path,
+        metavar="DIR",
+        default=None,
+        help=(
+            "Directory where merged .plotable files are written (only used with --folders). "
+            "If omitted, a temporary directory is used and deleted automatically after plotting."
+        ),
+    )
+
+    parser.add_argument(
         "--threads", "-j",
         type=int,
         default=1,
@@ -218,7 +239,8 @@ def main():
         for f in args.folders:
             if not f.is_dir():
                 parser.error(f"Folder not found: {f}")
-        multi_folder_mode(args.folders, args.outdir, log_arg, threads=args.threads)
+        multi_folder_mode(args.folders, args.outdir, log_arg, threads=args.threads,
+                          merged_dir=args.merged_dir)
 
 
 if __name__ == "__main__":

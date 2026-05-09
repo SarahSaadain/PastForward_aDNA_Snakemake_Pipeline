@@ -4,7 +4,79 @@ import logging
 import re
 
 
-class FileWriter:
+# everything 0-based
+
+
+####################################################################################
+##############             IO                              #########################
+####################################################################################
+
+def load_bed(bed_path: str):
+    """
+    Reads a BED file and returns a dictionary of positions that are present in the file.
+    bed is 0-based coordinates
+    """
+
+    # Using defaultdict(dict) for clean nested structure
+    result = defaultdict(lambda: defaultdict(bool))
+    if bed_path is None:
+        return result
+    
+    with open(bed_path, 'rt') as f:   
+        for line in f:
+            line = line.rstrip('\n')
+            if not line or line.startswith('#') or line.startswith('track ') or line.startswith('browser '):
+                continue
+                
+            fields = line.split('\t')
+            assert len(fields)>=3
+            chrom = fields[0]
+            start = int(fields[1])
+            end   = int(fields[2])
+
+            # BED is [start, end) → we include all positions from start inclusive to end inclusive
+            for pos in range(start, end+1):
+                result[chrom][pos] = True
+    return result
+
+def load_fasta(fafile):
+    entries = {}
+    current_header = None
+    current_sequence = []
+    fh=None
+    if  isinstance(fafile, TextIOBase):
+        fh=fafile
+    else:
+        fh=open(fafile,'r')
+    
+    for line in fh:
+        line = line.rstrip()  # remove trailing \n
+        
+        if line.startswith('>'):
+            # Save previous entry if exists
+            if current_header is not None:
+                seq = ''.join(current_sequence)
+                entries[current_header]=seq
+            
+            # Start new entry; get rid of >
+            current_header = line[1:]
+            # split and get rid of anything after whitespace
+            if re.search(r'\s', current_header):
+                current_header=re.split(r'\s+', current_header)[0]
+            current_sequence = []
+        elif line and current_header is not None:
+            # Add sequence line (skip empty lines)
+            current_sequence.append(line)
+    
+    # Don't forget the last entry!
+    if current_header is not None:
+        seq = ''.join(current_sequence)
+        entries[current_header]=seq
+    fh.close()
+    
+    return entries
+
+class Writer:
 
     def __init__(self,outfile):
         self.outfile=outfile
@@ -20,12 +92,12 @@ class FileWriter:
         else:
             print(towrite)
     
-    def __exit__(self):
+    def __exit__(self, exc_type, exc_val, exc_tb):
             if self.should_close and self.file_handle is not None:
                 self.file_handle.close()
                 self.file_handle = None
 
-class SequenceEntryReader:
+class SeqEntryReader:
     """
     Simple iterator over SeqEntry file that yields one record at a time.
 
@@ -52,14 +124,14 @@ class SequenceEntryReader:
             if not line:
                 # End of file — yield last record if any
                 if self._activeSeq:
-                    se = SequenceEntry.parse(self._activeLines)
+                    se = SeqEntry.parse(self._activeLines)
                     self._activeSeq = None
                     self._activeLines = []
                     return se
                 raise StopIteration
 
             line = line.rstrip('\n\r')
-            line = line.strip()
+            line=line.strip()
             seqName=line.split("\t")[0]
             
 
@@ -71,7 +143,7 @@ class SequenceEntryReader:
             elif seqName!=self._activeSeq:
                 # New record starts
                 # Yield previous record
-                se = SequenceEntry.parse(self._activeLines)
+                se = SeqEntry.parse(self._activeLines)
                 self._activeSeq=seqName
                 self._activeLines = [line]
                 return se
@@ -81,7 +153,6 @@ class SequenceEntryReader:
     def _open_file(self):
         if self._file is not None:
             return
-        
         if hasattr(self.file, 'readline'):
             # already a file object
             self._file = self.file
@@ -107,11 +178,11 @@ class SequenceEntryReader:
         self._open_file()
         return self
 
-    def __exit__(self): 
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
 
-def is_snp(refc,hash,cov,minc,minfreq):
+def isssnp(refc,hash,cov,minc,minfreq):
     # refc = A
     # hash =
     if cov==0:
@@ -137,6 +208,101 @@ def is_snp(refc,hash,cov,minc,minfreq):
         if gc>=minc and gf >=minfreq:
             return True
     return False
+
+
+####################################################################################
+##############             Normalization.                  #########################
+####################################################################################
+
+
+class NormFactor:
+
+    def _getCovTriplet(cov:list,qlen:int):
+        if qlen==0:
+            mcov=float(sum(cov))/float(len(cov))
+            return [mcov,None,None]
+        
+        cov.sort()
+        first=  cov[:qlen]
+        middle=  cov[qlen:-qlen]
+        last=  cov[-qlen:]
+        mfirst=float(sum(first))/float(len(first))
+        mmiddle=float(sum(middle))/float(len(middle))
+        mlast=float(sum(last))/float(len(last))
+        return [mmiddle,mfirst,mlast]
+
+
+
+    @classmethod
+    def getCovStat(cls, se, minDistance:int, quantile:int):
+        assert quantile<50 and quantile>=0
+        assert minDistance >=0
+        cov=se.cov
+        ambcov=se.ambcov
+        if minDistance>0:
+                cov=cov[minDistance:-minDistance]
+                ambcov=ambcov[minDistance:-minDistance]
+        assert len(cov)==len(ambcov)
+        if len(cov)==0:
+            return [None,]*6
+        qfrac=float(quantile)/100.0
+        qlen=int(len(cov)*qfrac)
+        covtrip=NormFactor._getCovTriplet(cov,qlen)
+        ambcovtrip=NormFactor._getCovTriplet(ambcov,qlen)
+        toret=[]
+        toret.extend(covtrip)
+        toret.extend(ambcovtrip)
+        return toret
+
+
+    @classmethod
+    def getNormalizationFactor(cls, filename:str, scg_suffix:str, min_end_distance: int, quanitle:int):
+        # compute the normalization factor from a seq-entry file (seq overview file so-file)
+        scgs=[]
+        for se in SeqEntryReader(filename):
+            if se.seqname.endswith(scg_suffix):
+                scgs.append(se)
+
+        if len(scgs)==0:
+            raise Exception("Cannot normalize without single copy genes")
+        normfactor=NormFactor.computeNormFactorForSe(scgs,min_end_distance,quanitle)
+        return normfactor
+
+    @classmethod
+    def computeNormFactorForSe(cls, seqEntries: list, minDistance:int,quantile:int):
+        assert quantile<50 and quantile>=0
+        assert minDistance >=0
+        # compute normalizatino factor for seq-entries
+        totcoverages=[]
+        for se in seqEntries:
+            # ignore the ends of the entries
+            if len(se.cov) <= 2 *minDistance:
+                continue
+            if minDistance>0:
+                # exclude the ends of the scgs
+                tcov=se.cov[minDistance:-minDistance]
+                totcoverages.extend(tcov)
+            else:
+                totcoverages.extend(se.cov)
+
+        # finaly exclude the quantiles of the largest and smallest coverages        
+        totcoverages.sort()
+        qfrac=float(quantile)/100.0
+        qlen=int(len(totcoverages)*qfrac)
+        if quantile>0:
+            totcoverages=totcoverages[qlen:-qlen]
+        if len(totcoverages)==0:
+            raise Exception("Unable to normalize; no valid coverage for a single copy gene")
+        mean=float(sum(totcoverages))/float(len(totcoverages))
+        return mean
+
+
+
+
+
+####################################################################################
+##############             SeqEntry + Indel SNP            #########################
+####################################################################################
 
 
 class Indel:
@@ -196,9 +362,12 @@ class SNP:
         gcn=float(self.gc)/normFactor
         ns=SNP(self.ref,self.pos,self.refc,acn,tcn,ccn,gcn)
         return ns
+    
 
 
-class SequenceEntry:
+
+
+class SeqEntry:
 
     @classmethod 
     def parse(cls,lines):
@@ -235,58 +404,60 @@ class SequenceEntry:
             raise Exception(f"No coverage for {activeName}")
         if ambcovar is None:
             raise Exception(f"No ambiguous coverage for {activeName}")
-        return SequenceEntry(activeName,covar,ambcovar,snplist,indellist)
+        return SeqEntry(activeName,covar,ambcovar,snplist,indellist)
     
-    def __init__(self,sequence_name:str,coverage,ambiguous_coverage,snp_list,indel_list):
-        self.sequence_name=sequence_name
-        self.coverage=coverage
-        self.ambiguous_coverage=ambiguous_coverage
-        self.snp_list=snp_list
-        self.indel_list=indel_list
+    def __init__(self,seqname:str,cov,ambcov,snplist,indellist):
+        self.seqname=seqname
+        self.cov=cov
+        self.ambcov=ambcov
+        self.snplist=snplist
+        self.indellist=indellist
     
     def __str__(self):
         # cov
-        tmp=" ".join([f"{i:.2f}" for i in self.coverage])
-        tpcov="\t".join([self.sequence_name,"cov",tmp])
+        tmp=" ".join([f"{i:.2f}" for i in self.cov])
+        tpcov="\t".join([self.seqname,"cov",tmp])
         #ambcov
-        tmp=" ".join([f"{i:.2f}"  for i in self.ambiguous_coverage])
-        tpambcov="\t".join([self.sequence_name,"ambcov",tmp])
+        tmp=" ".join([f"{i:.2f}"  for i in self.ambcov])
+        tpambcov="\t".join([self.seqname,"ambcov",tmp])
         tp=[tpcov,tpambcov]
-        for s in self.snp_list:
+        for s in self.snplist:
             tp.append(str(s))
-        for id in self.indel_list:
+        for id in self.indellist:
             tp.append(str(id))
         topr="\n".join(tp)
         return topr
     
     def normalize(self,normfactor:float):
-        cov=[float(i)/normfactor for i in self.coverage]
-        ambcov=[float(i)/normfactor for i in self.ambiguous_coverage]
+        cov=[float(i)/normfactor for i in self.cov]
+        ambcov=[float(i)/normfactor for i in self.ambcov]
         snplist=[]
-        for s in self.snp_list:
+        for s in self.snplist:
             snplist.append(s.normalize(normfactor))
         indellist=[]
-        for i in self.indel_list:
+        for i in self.indellist:
             indellist.append(i.normalize(normfactor))
-        return SequenceEntry(self.sequence_name,cov,ambcov,snplist,indellist)
+        return SeqEntry(self.seqname,cov,ambcov,snplist,indellist)
 
 
-class SequenceEntryBuilder:
-    def __init__(self,ref_sequence_string:str,ref_sequence_name:str,min_mapping_quality:int):
-        self.ref_sequence_string=ref_sequence_string
-        self.ref_sequence_length=len(ref_sequence_string)
-        self.ref_sequence_name=ref_sequence_name
+####################################################################################
+##############             Seqbuilder.                     #########################
+####################################################################################
 
-        # following variables are filled by add_read and used to create a SequenceEntry by to_SequenceEntry
-        
-        self.snp_overview_list=[{'A':0,'T':0,'C':0,'G':0} for i in list(ref_sequence_string)]
-        self.coverage_list=[0 for i in list(ref_sequence_string)]
-        self.ambiguous_coverage=[0 for i in list(ref_sequence_string)]
-        self.insertions_list=[]
-        self.deletions_list=[]
-        self.minmapq=min_mapping_quality
 
-    def __parse_cigar(self,cigar: str) -> list[tuple[str, int]]:
+class SeqBuilder:
+    def __init__(self,seq:str,seqname:str,minmapq:int):
+        self.seq=seq
+        self.seqlen=len(seq)
+        self.seqname=seqname
+        self.snpar=[{'A':0,'T':0,'C':0,'G':0} for i in list(seq)]
+        self.covar=[0 for i in list(seq)]
+        self.ambcovar=[0 for i in list(seq)]
+        self.inscol=[]
+        self.delcol=[]
+        self.minmapq=minmapq
+
+    def __parse_cigar(self,cigar: str):
         """Parse CIGAR string into list of (op, length) tuples."""
         ops = []
         i = 0
@@ -301,306 +472,285 @@ class SequenceEntryBuilder:
             i += 1
         return ops
     
-    def __add_coverage(self,alignment_start_pos: int,cigar_list,mapq:int):
-
-        reference_position = alignment_start_pos-1
-        query_position = 0
+    def __add_coverage(self,refpos: int,ops,mapq:int):
+        rpos=refpos # 0-based everything
+        qpos=0
         ### ref     ATTTAAACCCC---AAAA
         ### que.    ATTT---CCCCTTTAAAA
         ###             D      I
-        for cigar_operator, length in cigar_list:
-            if cigar_operator in ('H', 'S'):  # Hard/soft clip: consumes query only; does not add to coverage
-                query_position += length
-            elif cigar_operator == 'I':  # Insertion: consumes query only; does not add to coverage
-                query_position += length
-            elif cigar_operator in('D','N'):  # Deletion: consumes reference only; does add to coverage
+        for op, length in ops:
+            if op in ('H', 'S'):  # Hard/soft clip: consumes query only; does not add to coverage
+                qpos += length
+            elif op == 'I':  # Insertion: consumes query only; does not add to coverage
+                qpos += length
+            elif op in('D','N'):  # Deletion: consumes reference only; does add to coverage
                 for i in range(length):
-                    p = reference_position + i
-
-                    if p >= self.ref_sequence_length:
+                    p=rpos+i
+                    if p>=self.seqlen:
                         break
-                    
-                    self.coverage_list[p]+=0 # should i add to coverage -> at moment no
-
+                    self.covar[p]+=0 # should i add to coverage -> at moment no
                     if mapq<self.minmapq:
-                        self.ambiguous_coverage[p]+=0 # should i add to coverage -> at moment no
-                
-                reference_position += length
-
-            elif cigar_operator in ('M', '=', 'X'):  # Match/mismatch: consumes both; adds coverage
+                        self.ambcovar[p]+=0 # should i add to coverage -> at moment no
+                rpos += length
+            elif op in ('M', '=', 'X'):  # Match/mismatch: consumes both; adds coverage
                 for i in range(length):
-                    p=reference_position+i
-                    
-                    if p>=self.ref_sequence_length:
+                    p=rpos+i
+                    if p>=self.seqlen:
                         break
-
-                    self.coverage_list[p]+=1
-
+                    self.covar[p]+=1
                     if mapq<self.minmapq:
-                        self.ambiguous_coverage[p]+=1
+                        self.ambcovar[p]+=1
+                rpos += length
+                qpos += length
 
-                reference_position += length
-                query_position += length
-
-    def __add_indels(self,alignment_start_pos:int, cigar_list):
-        reference_position = alignment_start_pos-1
-        query_position = 0
-        
+    def __add_indels(self,refpos:int,ops):
+        rpos=refpos # 0-based everything
+        qpos=0
         ### ref     ATTTAAACCCC---AAAA
         ### que.    ATTT---CCCCTTTAAAA
         ###             D      I
-        for cigar_operator, length in cigar_list:
-            if cigar_operator in ('H', 'S'):  # Hard/soft clip: consumes query only; does not add to coverage
-                query_position += length
-            elif cigar_operator == 'I':  # Insertion: consumes query only; does not add to coverage
-                self.insertions_list.append((reference_position,length))
-                query_position += length
-            elif cigar_operator in('D','N'):  # Deletion: consumes reference only; does add to coverage
-                self.deletions_list.append((reference_position,length))
-                reference_position += length
-            elif cigar_operator in ('M', '=', 'X'):  # Match/mismatch: consumes both
-                reference_position += length
-                query_position += length
+        for op, length in ops:
+            if op in ('H', 'S'):  # Hard/soft clip: consumes query only; does not add to coverage
+                qpos += length
+            elif op == 'I':  # Insertion: consumes query only; does not add to coverage
+                self.inscol.append((rpos,length))
+                qpos += length
+            elif op in('D','N'):  # Deletion: consumes reference only; does add to coverage
+                self.delcol.append((rpos,length))
+                rpos += length
+            elif op in ('M', '=', 'X'):  # Match/mismatch: consumes both
+                rpos += length
+                qpos += length
 
-    def __add_snps(self,alignment_start_pos:int,cigar_list,sequence:str):
-        
+    def __add_snps(self,refpos:int,ops,seq:str):
         ### ref     ATTTAAACCCC---AAAA
         ### que.    ATTT---CCCCTTTAAAA
-        reference_position=alignment_start_pos-1
-        query_position = 0
-
-        for cigar_operator, length in cigar_list:
-            if cigar_operator in ('H', 'S'):  # Hard/soft clip: consumes query only
-                query_position += length
-            elif cigar_operator == 'I':  # Insertion: consumes query only
-                query_position += length
-            elif cigar_operator in('D','N'):  # Deletion: consumes reference only
-                reference_position += length
-            elif cigar_operator in ('M', '=', 'X'):  # Match/mismatch: consumes both
+        rpos=refpos # 0-based everything
+        qpos=0
+        for op, length in ops:
+            if op in ('H', 'S'):  # Hard/soft clip: consumes query only
+                qpos += length
+            elif op == 'I':  # Insertion: consumes query only
+                qpos += length
+            elif op in('D','N'):  # Deletion: consumes reference only
+                rpos += length
+            elif op in ('M', '=', 'X'):  # Match/mismatch: consumes both
                 for i in range(length):
-                    base = sequence[query_position + i]
-                    if base.upper() in 'ATCG':
-                        p=reference_position+i
-                        if p>=self.ref_sequence_length:
+                    base = seq[qpos + i]
+                    if base in 'ATCG':
+                        p=rpos+i
+                        if p>=self.seqlen:
                             break
-                        self.snp_overview_list[p][base]+=1
-                reference_position += length
-                query_position += length
+                        self.snpar[p][base]+=1
+                rpos += length
+                qpos += length
             # Ignore N (skipped reference), P (padding) if present
 
     
-    def add_read(self,alignment_start_pos:int,cigar:str,mapping_quality:int,sequence:str):
+    def add_read(self,refpos:int,cigar:str,mapq:int,seq:str):
 
-        cigar_list = self.__parse_cigar(cigar)
-        self.__add_coverage(alignment_start_pos, cigar_list, mapping_quality) # increase coverage; only cigar and mapquality considered
-        self.__add_indels(alignment_start_pos, cigar_list)        # add indels; only cigar considered; mapq ignored
-        self.__add_snps(alignment_start_pos, cigar_list, sequence)      # add snps; only cigar considered; mapq ignored
+        ops=self.__parse_cigar(cigar)
+        self.__add_coverage(refpos,ops,mapq) # increase coverage; only cigar and mapquality considered
+        self.__add_indels(refpos,ops)        # add indels; only cigar considered; mapq ignored
+        self.__add_snps(refpos,ops,seq)      # add snps; only cigar considered; mapq ignored
     
-    def to_SequenceEntry(self,snp_min_count, snp_min_frequency, indel_min_count, indel_min_frequency):
+    def toSeqEntry(self,mcsnp,mfsnp,mcindel,mfindel):
+        snplist=[]
+        for i,snp in enumerate(self.snpar):
+            refc=self.seq[i]
+            cov=self.covar[i]
+            if isssnp(refc,snp,cov,mcsnp,mfsnp):
+                snpentry=SNP(self.seqname,i,refc,snp['A'],snp['T'],snp['C'],snp['G']) # 0-based snp position
+                snplist.append(snpentry)
         
-        snp_list=[]
-        for i,snp in enumerate(self.snp_overview_list):
-            refc = self.ref_sequence_string[i]
-            cov = self.coverage_list[i]
-            if is_snp(refc,snp,cov,snp_min_count,snp_min_frequency):
-                snp_entry=SNP(self.ref_sequence_name,i+1,refc,snp['A'],snp['T'],snp['C'],snp['G']) # one based snp position
-                snp_list.append(snp_entry)
-        
-        indel_list=[]
+        indellist=[]
         # INSERTIONS
         tmp=defaultdict(int)
-        for ins in self.insertions_list:
+        for ins in self.inscol:
             tmp[ins]+=1
-
-        for ins, count in tmp.items():
-            pos=ins[0]-1 # position in ins is 1-based but coverage is 0-based
-            cov=self.coverage_list[pos]
+        for ins,count in tmp.items():
+            pos=ins[0] # -1 # position in ins is 0-based everything
+            cov=self.covar[pos-1]
+            if cov == 0:
+                continue
             insfreq=float(count)/float(cov)
-            if count>=indel_min_count and insfreq>=indel_min_frequency:
-                id=Indel(self.ref_sequence_name,"ins",ins[0],ins[1],count)
-                indel_list.append(id)
+            if count>=mcindel and insfreq>=mfindel:
+                id=Indel(self.seqname,"ins",ins[0],ins[1],count)
+                indellist.append(id)
 
         # DELETIONS; kept separate on purpose; in case I want to treat them differentially later
         tmp=defaultdict(int)
-        for de in self.deletions_list:
+        for de in self.delcol:
             tmp[de]+=1
-
         for de,count in tmp.items():
-            pos=de[0]-1 # position in ins is 1-based but coverage is 0-based
-            cov=self.coverage_list[pos]
+            pos=de[0] # -1 # 0-based everything
+            cov=self.covar[pos-1]
+            if cov == 0:
+                continue        
             defreq=float(count)/float(cov)
-            if count>=indel_min_count and defreq>=indel_min_frequency:
-                id=Indel(self.ref_sequence_name,"del",de[0],de[1],count)
-                indel_list.append(id)
+            if count>=mcindel and defreq>=mfindel:
+                id=Indel(self.seqname,"del",de[0],de[1],count)
+                indellist.append(id)
 
-        se=SequenceEntry(self.ref_sequence_name,self.coverage_list,self.ambiguous_coverage,snp_list,indel_list)
+        se=SeqEntry(self.seqname,self.covar,self.ambcovar,snplist,indellist)
         return se
 
-class NormFactor:
-
-    def _get_coverage_triplet(cov:list,qlen:int):
-        if qlen==0:
-            mcov=float(sum(cov))/float(len(cov))
-            return [mcov,None,None]
         
-        cov.sort()
-        first=  cov[:qlen]
-        middle=  cov[qlen:-qlen]
-        last=  cov[-qlen:]
-        mfirst=float(sum(first))/float(len(first))
-        mmiddle=float(sum(middle))/float(len(middle))
-        mlast=float(sum(last))/float(len(last))
-        return [mmiddle,mfirst,mlast]
 
 
 
+
+
+####################################################################################
+##############             Plotable formater               #########################
+####################################################################################
+####  ATTENTION ATTENTION ATTENTION ATTENTION ATTENTION ATTENTION ATTENTION ########
+####  ATTENTION ATTENTION ATTENTION ATTENTION ATTENTION ATTENTION ATTENTION ########
+###### 1-based output for R.    1-based output for R.    1-based output for R ######
+####  ATTENTION ATTENTION ATTENTION ATTENTION ATTENTION ATTENTION ATTENTION ########
+###### 1-based output for R.    1-based output for R.    1-based output for R ######
+
+class PlotableFormater:
+
+    ####################################################################################
+    #### offset switching from 0-based to 1-based
+    offset=1
+    
     @classmethod
-    def get_coverage_stat(cls, se, minDistance:int, quantile:int):
-        assert quantile<50 and quantile>=0
-        assert minDistance >=0
-        cov=se.cov
-        ambcov=se.ambcov
-        if minDistance>0:
-                cov=cov[minDistance:-minDistance]
-                ambcov=ambcov[minDistance:-minDistance]
-        assert len(cov)==len(ambcov)
-        if len(cov)==0:
-            return [None,]*6
-        qfrac=float(quantile)/100.0
-        qlen=int(len(cov)*qfrac)
-        covtrip=NormFactor._get_coverage_triplet(cov,qlen)
-        ambcovtrip=NormFactor._get_coverage_triplet(ambcov,qlen)
+    def prepareCoveragForPrint(cls,seqname:str,set:list, sampleid:str,covtype:str):
+        """
+        print the coverage a list of coverages
+        """
+        tmp=[]
+        for i,c in enumerate(set):
+            # seqname, sampleid, cov, pos, count
+            t=[seqname,sampleid,covtype,str(i+PlotableFormater.offset),str(c)]
+            tmp.append(t)
+        
+        # R-polygon necessity
+        first,last=tmp[0],tmp[-1]
+        newfirst=[first[0],first[1],first[2],first[3],"0.0"]
+        newlast=[last[0],last[1],last[2],last[3],"0.0"]
+        tmp.insert(0,newfirst)
+        tmp.append(newlast)
+        return tmp
+    
+    @classmethod
+    def prepareSNPForPrint(cls, se:SeqEntry, sampleid:str,tomask):
         toret=[]
-        toret.extend(covtrip)
-        toret.extend(ambcovtrip)
+        for s in se.snplist:
+            if s.pos in tomask:
+                continue
+            # seqname, sampleid, snp, pos, refc, ac, tc, cc, gc
+            # SNP(ref,pos,refc,ac,tc,cc,gc)
+            a={"A":s.ac,"T":s.tc,"C":s.cc,"G":s.gc}
+            for base,count in a.items():
+                if count ==0 or base==s.refc:
+                    continue
+                tmp=[se.seqname,sampleid,"snp",str(s.pos+PlotableFormater.offset), s.refc,base,str(count)]
+                toret.append(tmp)
+        return toret
+    
+    @classmethod
+    def prepareIndelForPrint(cls, se:SeqEntry, sampleid:str,tomask):
+        toret=[]
+        for i in se.indellist:
+            if i.type=="ins":
+                # 123456---789012
+                # 012345---678901 0-based = (6,3) insertions
+                # AAATTT---CCCGGG  
+                #    TTTAAACCC
+                if i.pos in tomask:
+                    continue
+                # seqname, sampleid, del, pos, length, count
+                # intentionally not using PlotableFormater.offset since I think first coordindate of insertion is better 
+                tmp=[se.seqname,sampleid,"ins",str(i.pos),str(i.length),str(i.count)] 
+                toret.append(tmp)
+                # ref:str,type:str,pos:int,length:int,count
+
+            elif i.type=="del":
+                # 123456890123
+                # 012345678901.  0-based = (6,3) deletion
+                # AAATTTCCCGGG
+                #    TTT---AAA
+                # seqname, sampleid, ins, startpos, endpos, startcov,endcov, count
+ 
+                startpos=i.pos # eg 6
+                endpos=startpos+i.length # eg 9 = 6+3
+                if startpos in tomask or endpos in tomask:
+                    continue
+                startcov=se.cov[startpos-1] # startcov at 5 = 6-1
+                endcov=se.cov[endpos]   # endcov at 9
+                
+                # note startpos does not get PlottableFormat.offset on purpose! endpos needs offset
+                # desired startpos in 1-based = 6; endpos = 10
+                tmp=[se.seqname,sampleid,"del",str(startpos),str(endpos+PlotableFormater.offset),str(startcov),str(endcov),str(i.count)]
+                toret.append(tmp)
+
+            else:
+                raise Exception(f"invalid type{i.type}")
         return toret
 
-
     @classmethod
-    def compute_normalization_factor_for_file(cls, filename:str, scg_suffix:str, min_end_distance: int, quanitle:int):
-        # compute the normalization factor from a seq-entry file (seq overview file so-file)
-        scgs=[]
+    def prepareForPrint(cls, se: SeqEntry, sampleid:str,tomask,ymax):
+        # get local masking
+        localmask=tomask[se.seqname] # bed is 0-based
+        # coverages and mask according to user specifications
+        cov=se.cov
+        ambcov=se.ambcov
+        mcov=[0]*len(cov)
+    
+        for i in range(0,len(cov)):
+            c=cov[i]
+            # mask coverage if either in localmaks or coverage exceeds ymax
+            if (i in localmask):
+                ambcov[i]=0
+                mcov[i]=cov[i]
+                cov[i]=0
+            elif ymax is not None and c>ymax:
+                ambcov[i]=0
+                mcov[i]=ymax
+                cov[i]=0
+                localmask[i]=True
 
-        for se in SequenceEntryReader(filename):
-            if se.sequence_name.endswith(scg_suffix):
-                scgs.append(se)
-
-        logging.debug(f"Found {len(scgs)} single copy genes with suffix '{scg_suffix}' in file {filename} for normalization.")
-
-        if len(scgs)==0:
-            logging.error(f"No single copy genes found with suffix '{scg_suffix}' in file {filename}. Cannot compute normalization factor.")
-            raise Exception("No single copy genes found for normalization")
+        lines=[]
+        covt=PlotableFormater.prepareCoveragForPrint(se.seqname ,cov,sampleid,"cov")
+        ambcovt=PlotableFormater.prepareCoveragForPrint(se.seqname,ambcov,sampleid,"ambcov")
+        mcovt=PlotableFormater.prepareCoveragForPrint(se.seqname,mcov,sampleid,"mcov")
+        lines.extend(covt)
+        lines.extend(ambcovt)
+        lines.extend(mcovt)
         
-        normfactor = NormFactor.compute_normalization_factor_for_sequence_entries(scgs,min_end_distance,quanitle)
-        return normfactor
+        snps=PlotableFormater.prepareSNPForPrint(se,sampleid,localmask)
+        lines.extend(snps)
+        indels=PlotableFormater.prepareIndelForPrint(se,sampleid,localmask)
+        lines.extend(indels)
 
-    @classmethod
-    def compute_normalization_factor_for_sequence_entries(cls, sequence_entities: list[SequenceEntry], ignore_read_ends_base_count:int, quantile:int) -> float:
-        assert quantile<50 and quantile>=0
-        assert ignore_read_ends_base_count >=0
+        return lines
 
-        logging.debug(f"Computing normalization factor using {len(sequence_entities)} single copy genes. Ignoring ends of single copy genes by {ignore_read_ends_base_count} bases and excluding {quantile}% of the most extreme coverage values based on quantiles.")
+####################################################################################
+##############             TESTS                           #########################
+####################################################################################
 
-        # compute normalizatino factor for seq-entries
-        coverages_list=[]
-        for sequence_entity in sequence_entities:
-            # ignore the ends of the entries
-            if len(sequence_entity.coverage) <= 2 * ignore_read_ends_base_count:
-                logging.debug(f"Skipping single copy gene '{sequence_entity.sequence_name}' for normalization factor computation because its length ({len(sequence_entity.coverage)}) is less than or equal to twice the minimum end distance ({2 * ignore_read_ends_base_count}).")
-                continue
-
-            total_coverage = sequence_entity.coverage
-            if ignore_read_ends_base_count > 0:
-                # exclude the ends of the scgs
-                total_coverage = total_coverage[ignore_read_ends_base_count:-ignore_read_ends_base_count]
-
-            coverages_list.extend(total_coverage)
-
-        # finaly exclude the quantiles of the largest and smallest coverages        
-        coverages_list.sort()
-       
-        if quantile>0:
-            quantile_fraction=float(quantile)/100.0
-            quantile_drop_count = int(len(coverages_list) * quantile_fraction)
-
-            logging.debug(f"Excluding {quantile_drop_count} coverage values from the lower and the upper end for normalization factor computation based on quantile {quantile}%.")
-
-            coverages_list_no_quantile = coverages_list[quantile_drop_count:-quantile_drop_count]
-
-        if len(coverages_list)==0:
-            raise Exception("Unable to normalize; no valid coverage for a single copy gene")
-
-        mean = float(sum(coverages_list_no_quantile))/float(len(coverages_list_no_quantile))
-
-        logging.debug(f"Computed normalization factor: {mean:.2f} based on {len(coverages_list_no_quantile)} coverage values from single copy genes after applying end distance and quantile filters. Sum of coverage values used for normalization factor computation: {sum(coverages_list_no_quantile):.2f}.")
-        logging.debug(f"Normalization factor computation details: Total single copy genes considered: {len(sequence_entities)}, Total coverage values before filtering: {len(coverages_list) + 2 * quantile_drop_count}, Total coverage values after filtering: {len(coverages_list_no_quantile)}, Normalization factor (mean coverage): {mean:.2f}")
-
-        if mean == 0:
-            # try without quantile filtering
-            # this is a fallback in case the quantile filtering removes too much data; this can happen if there are very few scgs or if the coverage is very uneven
-            # in this case we will just use the mean of all coverages without quantile filtering; this is not ideal but it is better than not being able to normalize at all
-            # we log a warning in this case
-            logging.warning(f"Normalization factor is zero after applying quantile filtering. This may indicate that the quantile filtering removed too much data. Trying to compute normalization factor without quantile filtering as a fallback.")
-            mean = float(sum(coverages_list))/float(len(coverages_list))            
-
-        return mean
-
-def load_fasta(fafile):
-    entries = {}
-    current_header = None
-    current_sequence = []
-    fh=None
-    if  isinstance(fafile, TextIOBase):
-        fh=fafile
-    else:
-        fh=open(fafile,'r')
-    
-    for line in fh:
-        line = line.rstrip()  # remove trailing \n
-        
-        if line.startswith('>'):
-            # Save previous entry if exists
-            if current_header is not None:
-                seq = ''.join(current_sequence)
-                entries[current_header]=seq
-            
-            # Start new entry; get rid of >
-            current_header = line[1:]
-            # split and get rid of anything after whitespace
-            if re.search(r'\s', current_header):
-                current_header=re.split(r'\s+', current_header)[0]
-            current_sequence = []
-        elif line and current_header is not None:
-            # Add sequence line (skip empty lines)
-            current_sequence.append(line)
-    
-    # Don't forget the last entry!
-    if current_header is not None:
-        seq = ''.join(current_sequence)
-        entries[current_header]=seq
-    fh.close()
-    
-    return entries
 
 def test_computeNormalization():
     # todo add tests for quantiles
-    ses=[SequenceEntry("t",[10,]*10,[],[],[]),SequenceEntry("t",[2,]*10,[],[],[])]
-    nf=NormFactor.compute_normalization_factor_for_sequence_entries(ses,0,0)
+    ses=[SeqEntry("t",[10,]*10,[],[],[]),SeqEntry("t",[2,]*10,[],[],[])]
+    nf=NormFactor.computeNormFactorForSe(ses,0,0)
     assert nf==6, "test1"
 
-    ses=[SequenceEntry("t",[1,10,10,10,10,10,1],[],[],[]),SequenceEntry("t",[1,2,2,2,2,2,1],[],[],[])]
-    nf=NormFactor.compute_normalization_factor_for_sequence_entries(ses,0,0)
+    ses=[SeqEntry("t",[1,10,10,10,10,10,1],[],[],[]),SeqEntry("t",[1,2,2,2,2,2,1],[],[],[])]
+    nf=NormFactor.computeNormFactorForSe(ses,0,0)
     assert nf<5, "test2"
-    nf=NormFactor.compute_normalization_factor_for_sequence_entries(ses,1,0)
+    nf=NormFactor.computeNormFactorForSe(ses,1,0)
     assert nf==6, "test3"
 
     print("Quick test computation of normalization factor passed ✓")
 
-def test_covstat():
-    se=SequenceEntry("t",[0,2,2,2,2,2,1,2,3,2,2,0],[99,5,5,5,6,4,5,5,5,5,5,99],[],[])
-    cs=NormFactor.get_coverage_stat(se,1,10)
 
-   
+def test_covstat():
+    se=SeqEntry("t",[0,2,2,2,2,2,1,2,3,2,2,0],[99,5,5,5,6,4,5,5,5,5,5,99],[],[])
+    cs=NormFactor.getCovStat(se,1,10)
 
     assert cs[0]==2
     assert cs[1]==1
@@ -642,88 +792,149 @@ def test_normalize():
     id=Indel("chr2", "ins",5,2,11)
     deli=Indel("chr3", "del",5,2,20)
     s=SNP("chr1",1,"A",5,6,7,1)
-    se=SequenceEntry("te1",[5,6,6,4,2],[2,3,4,6,1],[s],[id,deli])
+    se=SeqEntry("te1",[5,6,6,4,2],[2,3,4,6,1],[s],[id,deli])
     sn=se.normalize(2)
-    assert sn.coverage[0]==2.5
-    assert sn.coverage[1]==3
-    assert sn.coverage[4]==1
-    assert sn.ambiguous_coverage[0]==1
-    assert sn.ambiguous_coverage[1]==1.5
-    assert sn.ambiguous_coverage[4]==0.5
-    assert sn.ambiguous_coverage[3]==3
-    assert sn.snp_list[0].ac==2.5
-    assert sn.indel_list[0].count==5.5
-    assert sn.indel_list[1].count==10
+    assert sn.cov[0]==2.5
+    assert sn.cov[1]==3
+    assert sn.cov[4]==1
+    assert sn.ambcov[0]==1
+    assert sn.ambcov[1]==1.5
+    assert sn.ambcov[4]==0.5
+    assert sn.ambcov[3]==3
+    assert sn.snplist[0].ac==2.5
+    assert sn.indellist[0].count==5.5
+    assert sn.indellist[1].count==10
     print("Quick test of SeqEntry normalization PASSED ✓")
 
 
+def test_getSNP():
+    # toSeqEntry(self,mcsnp,mfsnp,mcindel,mfindel):
+    sb=SeqBuilder("AAATTTCCCGGG","hans",5)
+    sb.add_read(0,"3M",5,"AAT")
+    sb.add_read(0,"3M",5,"AAT")
+    sb.add_read(0,"3M",5,"TAT")
+    sb.add_read(0,"3M",5,"TCT")
+    se=sb.toSeqEntry(2,0.1,2,0.1)
+
+    assert len(se.snplist)==2
+    assert se.snplist[0].pos==0
+    assert se.snplist[0].ac==2
+    assert se.snplist[0].tc==2
+    assert se.snplist[1].pos==2
+    assert se.snplist[1].ac==0
+    assert se.snplist[1].tc==4
+    b=0
+    print("Quick test of SNP calling PASSED ✓")
+
+
+def test_getInsertion():
+    # toSeqEntry(self,mcsnp,mfsnp,mcindel,mfindel):
+    sb=SeqBuilder("AAATTTCCCGGG","hans",5)
+    # 123456---789012
+    # 012345---678901 0-based = (6,3) insertions
+    # AAATTT---CCCGGG  
+    #    TTTAAACCC
+    sb.add_read(3,"3M3I3M",5,"TTTAAACCC")
+    sb.add_read(3,"3M3I3M",5,"TTTAAACCC")
+    se=sb.toSeqEntry(2,0.1,2,0.1)
+
+    assert len(se.indellist)==1
+    assert se.indellist[0].pos==6
+    assert se.indellist[0].length==3
+    assert se.indellist[0].count==2
+    assert se.indellist[0].type=="ins"
+    b=0
+    print("Quick test of Insertion calling PASSED ✓")
+
+
+def test_getDeletion():
+    # toSeqEntry(self,mcsnp,mfsnp,mcindel,mfindel):
+    sb=SeqBuilder("AAATTTCCCGGG","hans",5)
+    # 123456890123
+    # 012345678901.  0-based = (6,3) deletion
+    # AAATTTCCCGGG
+    #    TTT---AAA
+    sb.add_read(3,"3M3D3M",5,"TTTAAA")
+    sb.add_read(2,"4M3D3M",5,"TTTTAAA")
+    sb.add_read(3,"3M3D3M",5,"TTTAAC")
+    se=sb.toSeqEntry(2,0.1,2,0.1)
+
+    assert len(se.indellist)==1
+    assert se.indellist[0].pos==6
+    assert se.indellist[0].length==3
+    assert se.indellist[0].count==3
+    assert se.indellist[0].type=="del"
+    print("Quick test of Deletion calling PASSED ✓")
 
 
 def test_Seq_Builder_add():
-    sb=SequenceEntryBuilder("AAATTTCCCGGG","hans",5)
-    sb.add_read(1,"3M",4,"AAA")
-    sb.add_read(1,"3M",5,"TTT")
-
-    assert sb.coverage_list[0]==2
-    assert sb.ambiguous_coverage[0]==1
-    assert sb.coverage_list[1]==2
-    assert sb.ambiguous_coverage[1]==1
-    assert sb.coverage_list[2]==2
-    assert sb.ambiguous_coverage[2]==1
-    assert sb.coverage_list[3]==0
-    assert sb.ambiguous_coverage[3]==0
-    assert sb.snp_overview_list[0]['A']==1
-    assert sb.snp_overview_list[0]['T']==1
-    
-
-    # AAATTT---CCCGGG
-    # 123456---789012
-    #    TTTAAACCC
-    sb.add_read(4,"3=3I3X",5,"TTTAAACCC")
-    assert sb.coverage_list[3]==1
-    assert sb.coverage_list[4]==1
-    assert sb.coverage_list[5]==1
-    assert sb.coverage_list[6]==1
-    assert sb.coverage_list[7]==1
-    assert sb.coverage_list[8]==1
-    assert sb.coverage_list[9]==0
-    assert sb.snp_overview_list[3]['T']==1
-    assert sb.snp_overview_list[6]['A']==0
-    assert sb.snp_overview_list[6]['C']==1
-    assert sb.insertions_list[0]==(6,3),  f"got {sb.insertions_list[0]}"
-
-
+    # 012345678901
     # AAATTTCCCGGG
-    # 123456789012
+    # AAA
+    # TTT
+    sb=SeqBuilder("AAATTTCCCGGG","hans",5)
+    sb.add_read(0,"3M",4,"ACC")
+    sb.add_read(0,"3M",5,"TGG")
+
+    assert sb.covar[0]==2
+    assert sb.ambcovar[0]==1
+    assert sb.covar[1]==2
+    assert sb.ambcovar[1]==1
+    assert sb.covar[2]==2
+    assert sb.ambcovar[2]==1
+    assert sb.covar[3]==0
+    assert sb.ambcovar[3]==0
+    assert sb.snpar[0]['A']==1
+    assert sb.snpar[0]['T']==1
+    
+    # 123456---789012
+    # 012345---678901
+    # AAATTT---CCCGGG
+    #    TTTAAACCC
+    sb.add_read(3,"3=3I3X",5,"TTTAAACCC")
+    assert sb.covar[3]==1
+    assert sb.covar[4]==1
+    assert sb.covar[5]==1
+    assert sb.covar[6]==1
+    assert sb.covar[7]==1
+    assert sb.covar[8]==1
+    assert sb.covar[9]==0
+    assert sb.snpar[3]['T']==1
+    assert sb.snpar[6]['A']==0
+    assert sb.snpar[6]['C']==1
+    assert sb.inscol[0]==(6,3),  f"got {sb.inscol[0]}"
+
+    # 123456---789012
+    # 012345---678901
+    # AAATTTCCCGGG
     #    TTT---AAA
-    sb.add_read(4,"3M3D3M",5,"TTTAAA")
-    assert sb.coverage_list[3]==2
-    assert sb.coverage_list[4]==2
-    assert sb.coverage_list[5]==2
-    assert sb.coverage_list[6]==1
-    assert sb.coverage_list[7]==1
-    assert sb.coverage_list[8]==1
-    assert sb.coverage_list[9]==1
-    assert sb.coverage_list[10]==1
-    assert sb.coverage_list[11]==1
-    assert sb.deletions_list[0]==(6,3), f"got {sb.deletions_list[0]}"
+    sb.add_read(3,"3M3D3M",5,"TTTAAA")
+    assert sb.covar[3]==2
+    assert sb.covar[4]==2
+    assert sb.covar[5]==2
+    assert sb.covar[6]==1
+    assert sb.covar[7]==1
+    assert sb.covar[8]==1
+    assert sb.covar[9]==1
+    assert sb.covar[10]==1
+    assert sb.covar[11]==1
+    assert sb.delcol[0]==(6,3), f"got {sb.delcol[0]}"
 
-    sb.add_read(12,"3M",5,"TTT")
-
+    sb.add_read(11,"3M",5,"TTT")
 
     print("Quick test of SeqBuilder add PASSED ✓")
 
 
 def test_Seq_Builder_init():
-    sb=SequenceEntryBuilder("AAATTTCCCGGG","hans",5)
-    assert sb.ref_sequence_string == "AAATTTCCCGGG",           f"sequence"
-    assert sb.ref_sequence_name == "hans",            f"seqname"
+    sb=SeqBuilder("AAATTTCCCGGG","hans",5)
+    assert sb.seq == "AAATTTCCCGGG",           f"sequence"
+    assert sb.seqname == "hans",            f"seqname"
     assert sb.minmapq ==5,                  f"minmapq"
-    assert len(sb.coverage_list) == 12,             f"length of covar"
-    assert len(sb.ambiguous_coverage) == 12,           f"length of ambcovar"
-    assert len(sb.snp_overview_list) == 12,           f"length of ambcovar"
-    assert len(sb.insertions_list) == 0,           f"length of ambcovar"
-    assert len(sb.deletions_list) == 0,           f"length of ambcovar"
+    assert len(sb.covar) == 12,             f"length of covar"
+    assert len(sb.ambcovar) == 12,           f"length of ambcovar"
+    assert len(sb.snpar) == 12,           f"length of ambcovar"
+    assert len(sb.inscol) == 0,           f"length of ambcovar"
+    assert len(sb.delcol) == 0,           f"length of ambcovar"
     print("Quick test of SeqBuilder __init__ PASSED ✓")
 
 def test_fasta_loader():
@@ -756,6 +967,66 @@ ATGCATGCATGC
     
     print("Quick test of fasta_loader PASSED ✓")
 
+def test_convert_to_portable():
+    # (self,seqname:str,cov,ambcov,snplist,indellist):
+    se=SeqEntry("tr1",[],[],[],[])
+    se.snplist.append(SNP("t",100,"A",2,3,4,0))
+    sl=PlotableFormater.prepareSNPForPrint(se,"tamtam",{})
+
+    assert len(sl)==2
+    assert sl[0][3]=="101" # conversion 100->101 R is 1-based
+    assert sl[0][6]=="3"
+    assert sl[1][3]=="101" # conversion 100->101 R is 1-based
+    assert sl[1][6]=="4"  
+
+
+    se=SeqEntry("tr1",[],[],[],[])
+    se.indellist.append(Indel("t","ins",200,3,10))
+    ins = PlotableFormater.prepareIndelForPrint(se,"tamtam",{})
+    assert len(ins)==1
+    assert ins[0][3]=="200" # conversion of 200 -> 200 (position is now one position before insertion; instead of 1 position after insertion)
+    
+    # (self,seqname:str,cov,ambcov,snplist,indellist):
+    se=SeqEntry("tr1",[i for i in range(1000,1400)],[],[],[])
+    se.indellist.append(Indel("t","del",300,10,20))
+    dele = PlotableFormater.prepareIndelForPrint(se,"tamtam",{})
+    assert len(dele)==1
+    assert dele[0][3]=="300" # conversion of 300 -> 300 # i want first coordinate before deletion 1-based
+    assert dele[0][4]=="311" # conversion of 310 -> 311  # i want frst coordinate after deletion 1-based
+    
+
+    cov=PlotableFormater.prepareCoveragForPrint("hans",[20,30],"sepp","cov")
+    assert len(cov)==4 
+    assert cov[0][3]=="1"
+    assert cov[3][3]=="2"
+
+    print("Test convert to portable PASSED ✓")
+
+def test_filter_portable():
+    # (self,seqname:str,cov,ambcov,snplist,indellist):
+    se=SeqEntry("tr1",[],[],[],[])
+    se.snplist.append(SNP("t",11,"A",2,3,0,0))
+    se.snplist.append(SNP("t",12,"A",2,3,0,0))
+    se.snplist.append(SNP("t",13,"A",2,3,0,0))
+    sl=PlotableFormater.prepareSNPForPrint(se,"tamtam",{12:True})
+
+    b=0
+    assert len(sl)==2
+    assert sl[0][3]=="12" # 11 +1 (remember conversion from 0-based to 1-based)
+    assert sl[1][3]=="14" # 13+1 
+    # hence 12+1 should be missing; check
+
+    se=SeqEntry("tr1",[],[],[],[])
+    se.indellist.append(Indel("t","ins",111,3,10))
+    se.indellist.append(Indel("t","ins",112,3,10))
+    se.indellist.append(Indel("t","ins",113,3,10))
+    ins = PlotableFormater.prepareIndelForPrint(se,"tamtam",{112:True})
+    assert len(ins)==2
+    assert ins[0][3]=="111" 
+    assert ins[1][3]=="113" 
+    print("Test filter portable PASSED ✓")
+    
+
 if __name__ == "__main__":
     test_fasta_loader()
     test_Seq_Builder_init()
@@ -763,3 +1034,8 @@ if __name__ == "__main__":
     test_normalize()
     test_computeNormalization()
     test_covstat()
+    test_getSNP()
+    test_getInsertion()
+    test_getDeletion()
+    test_convert_to_portable()
+    test_filter_portable()
