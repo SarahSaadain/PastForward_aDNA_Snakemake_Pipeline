@@ -10,7 +10,7 @@ _dyn_mapper_extra = _dyn_settings.get("mapper_extra_params", _BWA_ALN_DEFAULTS i
 if _dyn_mapper == "minimap2":
     rule index_library_for_mapping_minimap2:
         input:
-            "{species}/processed/dynamics/lib/{feature_library}_and_scg.suffixed.fasta"
+            target="{species}/processed/dynamics/lib/{feature_library}_and_scg.suffixed.fasta"
         output:
             "{species}/processed/dynamics/lib/{feature_library}_and_scg.suffixed.fasta.mmi",
         log:
