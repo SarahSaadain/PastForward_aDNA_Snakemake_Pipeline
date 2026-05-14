@@ -154,32 +154,6 @@ def get_expected_output_reads_plots(species):
     return expected_outputs
 
 # -----------------------------------------------------------------------------------------------
-# Get expected output file paths for adapter removal
-def get_expected_output_adapter_removal(species):
-    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("adapter_removal", {}).get("execute", True) == False:
-        logging.info(f"Skipping adapter removal for {species}. Disabled in config.")
-        return []
-    
-    expected_outputs = []
-    for sample in get_sample_ids_for_species(species):
-        expected_outputs.append(f"{species}/processed/reads/reads_trimmed/{sample}_trimmed_final.fastq.gz")
-        
-    return expected_outputs
-
-# -----------------------------------------------------------------------------------------------
-# Get expected output file paths for quality filtering
-def get_expected_output_quality_filtering(species):
-    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("quality_filtering", {}).get("execute", True) == False:
-        logging.info(f"Skipping quality filtering for {species}. Disabled in config.")
-        return []
-    
-    expected_outputs = []
-    for sample in get_sample_ids_for_species(species):
-        expected_outputs.append(f"{species}/processed/reads/reads_quality_filtered/{sample}_quality_filtered_final.fastq.gz")
-        
-    return expected_outputs
-
-# -----------------------------------------------------------------------------------------------
 # Get expected output file paths for read merging
 def get_expected_output_read_merging(species):
     
@@ -201,8 +175,6 @@ def get_expexted_output_raw_read_processing(species):
     # Add FastQC outputs for raw reads
     expected_outputs = []
 
-    expected_outputs += get_expected_output_adapter_removal(species)
-    expected_outputs += get_expected_output_quality_filtering(species)
     expected_outputs += get_expected_output_read_merging(species)
 
     # Add MultiQC reports for different read processing stages
