@@ -34,6 +34,7 @@ def get_expected_output_dynamics_processing(species):
             all_inputs.append(f"{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_plots_facet/")
             all_inputs.append(f"{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_plotables_facet.tar.gz")
             all_inputs.append(f"{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_stats_comparison.tsv")
+            all_inputs.append(f"{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_flagged_seqids.tsv")
             for individual in individuals:
                 all_inputs.append(f"{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.tsv.gz")
                 all_inputs.append(f"{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_coverage.normalized.tsv.gz")

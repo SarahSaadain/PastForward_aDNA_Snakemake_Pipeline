@@ -212,3 +212,16 @@ rule compress_seqvista_plotable_of_species:
     message: "Compressing SeqVista plotables of species for {wildcards.species}"
     shell:
         "tar -c {input.source} | pigz -p {threads} > {output.target}"
+
+rule extract_flagged_seqids:
+    input:
+        tsv = "{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_stats_comparison.tsv"
+    output:
+        txt = "{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_flagged_seqids.tsv"
+    conda:
+        "../../envs/python_and_r.yaml"
+    run:
+        import pandas as pd
+        df = pd.read_csv(input.tsv, sep="\t")
+        flagged = df[df["flag"].notna() & (df["flag"] != "")][["seqid", "flag"]]
+        flagged.to_csv(output.txt, sep="\t", index=False)
