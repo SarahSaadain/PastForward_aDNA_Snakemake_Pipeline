@@ -43,9 +43,8 @@ rule clean_feature_library_name:
         temp("{species}/processed/dynamics/lib/feature_library/{feature_library}.clean.fasta")
     message: "Preparing TE library for {wildcards.species}"
     shell:
-        # remove trailing whitespace from headers and append _fle to each header
         """
-        ln -s {input} {output}
+        ln -sf $(realpath {input}) {output}
         """
 
 rule prepare_feature_library:
@@ -67,9 +66,8 @@ rule clean_scg_library_name:
         temp("{species}/processed/dynamics/lib/scg/{scg_library}.clean.fasta")
     message: "Preparing SCG library for {wildcards.species}"
     shell:
-        # remove trailing whitespace from headers and append _scg to each header
         """
-        ln -s {input} {output}
+        ln -sf $(realpath {input}) {output}
         """
 
 rule prepare_scg_library:
