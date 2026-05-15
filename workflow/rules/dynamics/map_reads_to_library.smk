@@ -24,13 +24,14 @@ if _dyn_mapper == "minimap2":
             query=["{species}/processed/reads/reads_merged/{individual}.fastq.gz"],
             target="{species}/processed/dynamics/lib/{feature_library}_and_scg.suffixed.fasta.mmi",
         output:
-            temp("{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.unsorted.bam"),
+            temp("{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.sorted.bam"),
         log:
             "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg_minimap2.log",
         message: "Mapping reads of {wildcards.individual} to {wildcards.species} SCG and Feature library with minimap2"
         params:
             extra="-ax sr " + _dyn_mapper_extra,
-            sorting="none",
+            sorting="coordinate",
+            sort_extra="-F 4"
         threads: 10
         wrapper:
             "v9.3.0/bio/minimap2/aligner"
@@ -74,6 +75,34 @@ elif _dyn_mapper == "bwa-aln":
         wrapper:
             "v9.3.0/bio/bwa/samse"
 
+        
+    # Rule: Remove unmapped reads
+    rule remove_unmapped:
+        # 2 Convert SAM to BAM
+        input:
+            "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.unsorted.bam"
+        output:
+            bam=temp("{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.unsorted.no_unmapped.bam") # needs to be called .unsorted.bam otherwise snakemake had problems with unambigous names
+        message: "Removing unmapped reads from BAM file for {input}"
+        params:
+            extra="-b -F 4",  # optional params string
+        threads: 2
+        wrapper:
+            "v9.3.0/bio/samtools/view"
+
+    # Rule: Sort BAM file
+    rule  sort_bam_reads_to_library:
+        input:
+            "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.unsorted.no_unmapped.bam"
+        output:
+            "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.sorted.bam"
+        message: "Sorting BAM file for {input}"
+        log:
+            "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg_sort_bam.log",
+        threads: 8
+        wrapper:
+            "v9.3.0/bio/samtools/sort"
+
 else:
     # bwa-mem2 (default)
     rule index_library_for_mapping_bwa_mem2:
@@ -96,46 +125,18 @@ else:
             reads=["{species}/processed/reads/reads_merged/{individual}.fastq.gz"],
             idx=multiext("{species}/processed/dynamics/lib/{feature_library}_and_scg.suffixed.fasta", ".amb", ".ann", ".bwt.2bit.64", ".pac", ".0123"),
         output:
-            temp("{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.unsorted.bam"),
+            temp("{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.sorted.bam"),
         log:
             "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg_bwa.log",
         message: "Mapping reads of {wildcards.individual} to {wildcards.species} SCG and Feature library with BWA-MEM2"
         params:
             extra=_dyn_mapper_extra,
-            sort="none",
+            sort="samtools",
             sort_order="coordinate",
-            sort_extra="",
+            sort_extra="-F 4"
         threads: 10
         wrapper:
             "v9.3.0/bio/bwa-mem2/mem"
-
-
-# Rule: Remove unmapped reads
-rule remove_unmapped:
-    # 2 Convert SAM to BAM
-    input:
-        "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.unsorted.bam"
-    output:
-        bam=temp("{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.unsorted.no_unmapped.bam") # needs to be called .unsorted.bam otherwise snakemake had problems with unambigous names
-    message: "Removing unmapped reads from BAM file for {input}"
-    params:
-        extra="-b -F 4",  # optional params string
-    threads: 2
-    wrapper:
-        "v9.3.0/bio/samtools/view"
-
-# Rule: Sort BAM file
-rule  sort_bam_reads_to_library:
-    input:
-        "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.unsorted.no_unmapped.bam"
-    output:
-        "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg.sorted.bam"
-    message: "Sorting BAM file for {input}"
-    log:
-        "{species}/processed/dynamics/{feature_library}/mapped/{individual}_{feature_library}_and_scg_sort_bam.log",
-    threads: 8
-    wrapper:
-        "v9.3.0/bio/samtools/sort"
 
 # Rule: Index BAM file
 # SAMTOOLS doesn't parallelize the indexing work — it only parallelizes compression/decompression.
