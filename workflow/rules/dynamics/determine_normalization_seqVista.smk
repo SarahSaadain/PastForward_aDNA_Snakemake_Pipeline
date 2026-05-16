@@ -23,6 +23,14 @@ def combine_seqvistas_for_species_input_coverage_files(wildcards):
 
     return list_of_seqvista_files_of_individuals
 
+def combine_seqvista_stats_across_feature_libraries_input(wildcards):
+    feature_libraries = get_feature_library_ids_for_species(wildcards.species)
+    return expand(
+        "{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_{feature_library}_stats_comparison.tsv",
+        species=wildcards.species,
+        feature_library=feature_libraries
+    )
+
 ####################################################
 # Snakemake rules
 ####################################################
@@ -115,7 +123,7 @@ rule compare_seqvista_stats_accross_individuals_of_species:
             feature_library=wildcards.feature_library,
             individual=get_individuals_for_species(wildcards.species))
     output:
-        stats="{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_stats_comparison.tsv",
+        stats="{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_{feature_library}_stats_comparison.tsv",
     conda:
         "../../envs/python_and_r.yaml"
     message:
@@ -124,6 +132,25 @@ rule compare_seqvista_stats_accross_individuals_of_species:
         """
         python workflow/scripts/dynamics/seqvista/compare_stats.py --stats {input} --outfile {output.stats}
         """
+
+rule combine_seqvista_stats_across_feature_libraries:
+    input:
+        combine_seqvista_stats_across_feature_libraries_input
+    output:
+        combined="{species}/results/dynamics/{species}_seqvista_stats_comparison.tsv"
+    conda:
+        "../../envs/python_and_r.yaml"
+    message:
+        "Combining seqvista stats comparisons across all feature libraries for {wildcards.species}."
+    run:
+        import pandas as pd
+        feature_libraries = get_feature_library_ids_for_species(wildcards.species)
+        frames = []
+        for feature_library, tsv_file in zip(feature_libraries, input):
+            df = pd.read_csv(tsv_file, sep="\t")
+            df.insert(0, "feature_library", feature_library)
+            frames.append(df)
+        pd.concat(frames, ignore_index=True).to_csv(output.combined, sep="\t", index=False)
 
 rule run_seqvista_visualization_of_individual:
     input:
@@ -215,9 +242,9 @@ rule compress_seqvista_plotable_of_species:
 
 rule extract_flagged_seqids:
     input:
-        tsv = "{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_stats_comparison.tsv"
+        tsv = "{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_{feature_library}_stats_comparison.tsv"
     output:
-        txt = "{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_flagged_seqids.tsv"
+        txt = "{species}/results/dynamics/{feature_library}/seqvista/species_level/{species}_{feature_library}_flagged_seqids.tsv"
     conda:
         "../../envs/python_and_r.yaml"
     run:
