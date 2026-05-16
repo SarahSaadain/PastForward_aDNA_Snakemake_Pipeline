@@ -158,14 +158,14 @@ def reorder_columns(df: pd.DataFrame, samples: list[str]) -> pd.DataFrame:
     Readable column order:
       seqid | seq_len | flag | flagged
       cross-sample CN metrics
-      per-sample blocks: all metrics for sample 1, then sample 2, ...
+      per-metric blocks: all samples for median_cov, then mad_cov, ...
     """
     head    = ["seqid", "seq_len", "flag", "flagged"]
     cn_summary = ["cn_min", "cn_max", "cn_abs", "cn_log2fc"]
     per_sample = [
         f"{metric}__{s}"
-        for s in samples
         for metric in PER_SAMPLE_COLS
+        for s in samples
         if f"{metric}__{s}" in df.columns
     ]
     ordered = head + cn_summary + per_sample
