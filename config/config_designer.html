@@ -1042,13 +1042,14 @@
 
           <!-- SeqVista -->
           <div class="subsection">
-            <div class="subsection-header">
+            <div class="subsection-header clickable" onclick="toggleSub(this)">
               <span class="sdot on" id="d_sv"></span>
               <span class="subsection-title">SeqVista</span>
               <label class="toggle" onclick="event.stopPropagation()">
                 <input type="checkbox" id="sv_exec" checked onchange="dot('sv_exec','d_sv'); render()">
                 <span class="slider"></span>
               </label>
+              <span class="sub-chevron">&#9654;</span>
             </div>
             <div class="step-desc">
               <span class="tool-pill purple">SeqVista</span>
@@ -1057,6 +1058,24 @@
               directory structure, then used to produce <strong>per-individual TE occupancy plots</strong> and a
               <strong>faceted species-level comparison plot</strong> showing TE dynamics across all individuals simultaneously.
               <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off if you only need normalised abundance counts and do not require per-position TE occupancy profiles. SeqVista is more computationally intensive than PF Normalization alone.</div>
+            </div>
+            <div class="subsection-body open">
+              <div class="field">
+                <label>Individual plots</label>
+                <select id="sv_individual_plots" onchange="render()">
+                  <option value="plot" selected>plot &mdash; generate plotables and render plots</option>
+                  <option value="plotable_only">plotable_only &mdash; generate plotables, skip rendering</option>
+                  <option value="skip">skip &mdash; skip plotables and plots</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Comparison plot</label>
+                <select id="sv_comparison_plots" onchange="render()">
+                  <option value="plot" selected>plot &mdash; generate plotables and render facet plot</option>
+                  <option value="plotable_only">plotable_only &mdash; generate plotables, skip rendering</option>
+                  <option value="skip">skip &mdash; skip plotables and facet plot</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1322,6 +1341,9 @@ function buildYAML() {
   if (gb('dyn_xp_en') && gv('dyn_xp').trim()) kv(8, 'mapper_extra_params', gv('dyn_xp'));
   p(4, 'seqvista:');
   kv(6, 'execute', gb('sv_exec'));
+  p(6, 'settings:');
+  kv(8, 'individual_plots', gv('sv_individual_plots'));
+  kv(8, 'comparison_plots', gv('sv_comparison_plots'));
   p(4, 'pf_normalization:');
   kv(6, 'execute', gb('pfn_exec'));
   p(0, '');
@@ -1535,6 +1557,9 @@ function populateForm(c) {
   if (dym.mapper_extra_params !== undefined) { setOpt('dyn_xp_en','dyn_xp_body','dyn_xp_hdr',true); sv('dyn_xp',dym.mapper_extra_params); }
   else setOpt('dyn_xp_en','dyn_xp_body','dyn_xp_hdr',false);
   sb('sv_exec',  (dyn.seqvista||{}).execute);                     dot('sv_exec','d_sv');
+  const svs = (dyn.seqvista||{}).settings||{};
+  sv('sv_individual_plots', svs.individual_plots || 'plot');
+  sv('sv_comparison_plots', svs.comparison_plots || 'plot');
   sb('pfn_exec', (dyn.pf_normalization||{}).execute);             dot('pfn_exec','d_pfn');
   sb('sp_exec',  sp.execute);
 
@@ -1591,7 +1616,7 @@ function resetDefaults() {
       dynamics: {
         execute: true,
         mapping: { settings: { mapper: 'bwa-aln' } },
-        seqvista: { execute: true },
+        seqvista: { execute: true, settings: { individual_plots: 'plot', comparison_plots: 'plot' } },
         pf_normalization: { execute: true }
       },
       summary_processing: { execute: true }
