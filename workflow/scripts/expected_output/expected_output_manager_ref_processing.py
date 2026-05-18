@@ -39,7 +39,7 @@ def get_expected_output_reference_processing(species):
             logging.info(f"Skipping plots for species {species} and reference {reference}. Disabled in config.")
 
         if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("settings", {}).get("species_multiqc", True) == True:
-            expected_outputs.append(f"{species}/results/{reference}/analytics/{species}_{reference}_multiqc.html")
+            expected_outputs.append(f"{species}/results/{reference}/analytics/species_level/{species}_{reference}_multiqc.html")
 
         for individual in individuals:
 
@@ -47,7 +47,7 @@ def get_expected_output_reference_processing(species):
             expected_outputs.append(f"{species}/processed/{reference}/mapped/{individual}_{reference}_final.bam.bai")
 
             if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("settings", {}).get("individual_multiqc", True) == True:
-                expected_outputs.append(f"{species}/results/{reference}/analytics/{individual}_{reference}_multiqc.html")
+                expected_outputs.append(f"{species}/results/{reference}/analytics/individual_level/{individual}_{reference}_multiqc.html")
 
             if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("settings", {}).get("damage_analysis", True) == True:
                 expected_outputs.append(f"{species}/results/{reference}/analytics/{individual}/mapdamage/")
