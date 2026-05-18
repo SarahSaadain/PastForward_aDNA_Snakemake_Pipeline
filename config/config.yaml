@@ -61,6 +61,18 @@ pipeline:
         ecmsd:
           # When true, this tool will be executed (Default: true)
           execute: true
+          settings:
+            # Optional: Path to the ECMSD database folder.
+            # If not provided, the database will be auto-created via ECMSD --create-db
+            #database: "resources/ecmsd_database"
+            # Reference genome bin size for coverage calculation (Default: 1000)
+            binsize: 1000
+            # Minimum Relative Mapping Uniqueness Score — taxa below this are filtered out (Default: 0.15)
+            rmus_threshold: 0.15
+            # Minimum mapping quality score to include a read in analysis (Default: 20)
+            mapping_quality: 20
+            # Taxonomic level for aggregating results. Options: "species", "genus", "family", "order" (Default: "species")
+            taxonomic_hierarchy: "species"
         # Centrifuge tool settings for contamination analysis
         centrifuge:
           # When true, this tool will be executed (Default: true)

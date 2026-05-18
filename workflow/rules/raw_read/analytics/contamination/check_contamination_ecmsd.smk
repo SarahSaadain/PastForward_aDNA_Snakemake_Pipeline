@@ -48,8 +48,8 @@ rule ecmsd_analyze_contamination:
         tax_hierarchy_readlength        = _ecmsd_tax_hierarchy_readlength_output,
         tax_hierarchy_proportions_png   = _ecmsd_tax_hierarchy_proportions_png_output,
     params:
-        binsize = config.get("pipeline", {}).get("raw_reads_processing", {}).get("contamination_analysis", {}).get("tools", {}).get("ecmsd", {}).get("settings", {}).get("Binsize", 1000),
-        rmus_threshold = config.get("pipeline", {}).get("raw_reads_processing", {}).get("contamination_analysis", {}).get("tools", {}).get("ecmsd", {}).get("settings", {}).get("RMUS_threshold", 0.15),
+        binsize = config.get("pipeline", {}).get("raw_reads_processing", {}).get("contamination_analysis", {}).get("tools", {}).get("ecmsd", {}).get("settings", {}).get("binsize", 1000),
+        rmus_threshold = config.get("pipeline", {}).get("raw_reads_processing", {}).get("contamination_analysis", {}).get("tools", {}).get("ecmsd", {}).get("settings", {}).get("rmus_threshold", 0.15),
         mapping_quality = config.get("pipeline", {}).get("raw_reads_processing", {}).get("contamination_analysis", {}).get("tools", {}).get("ecmsd", {}).get("settings", {}).get("mapping_quality", 20),
         taxonomic_hierarchy = config.get("pipeline", {}).get("raw_reads_processing", {}).get("contamination_analysis", {}).get("tools", {}).get("ecmsd", {}).get("settings", {}).get("taxonomic_hierarchy", "species"),
         prefix = "{sample}"

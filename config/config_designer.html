@@ -1251,8 +1251,8 @@ function buildYAML() {
     p(10, 'settings:');
     if (gb('ca_ecmsd_db_en') && gv('ca_ecmsd_db').trim()) kv(12, 'database', gv('ca_ecmsd_db'));
     if (gb('ca_ecmsd_adv_en')) {
-      kv(12, 'Binsize', gn('ca_ecmsd_binsize'));
-      kv(12, 'RMUS_threshold', parseFloat(gv('ca_ecmsd_rmus')));
+      kv(12, 'binsize', gn('ca_ecmsd_binsize'));
+      kv(12, 'rmus_threshold', parseFloat(gv('ca_ecmsd_rmus')));
       kv(12, 'mapping_quality', gn('ca_ecmsd_mq'));
       kv(12, 'taxonomic_hierarchy', gv('ca_ecmsd_taxhier'));
     }
@@ -1485,10 +1485,10 @@ function populateForm(c) {
   sb('ca_ecmsd_exec', ecmsd_tool.execute);
   if (ecmsd_s.database !== undefined) { setOpt('ca_ecmsd_db_en','ca_ecmsd_db_body','ca_ecmsd_db_hdr',true); sv('ca_ecmsd_db',ecmsd_s.database); }
   else setOpt('ca_ecmsd_db_en','ca_ecmsd_db_body','ca_ecmsd_db_hdr',false);
-  if (ecmsd_s.Binsize !== undefined || ecmsd_s.RMUS_threshold !== undefined || ecmsd_s.mapping_quality !== undefined || ecmsd_s.taxonomic_hierarchy !== undefined) {
+  if (ecmsd_s.binsize !== undefined || ecmsd_s.rmus_threshold !== undefined || ecmsd_s.mapping_quality !== undefined || ecmsd_s.taxonomic_hierarchy !== undefined) {
     setOpt('ca_ecmsd_adv_en','ca_ecmsd_adv_body','ca_ecmsd_adv_hdr',true);
-    if (ecmsd_s.Binsize !== undefined) sv('ca_ecmsd_binsize', ecmsd_s.Binsize);
-    if (ecmsd_s.RMUS_threshold !== undefined) sv('ca_ecmsd_rmus', ecmsd_s.RMUS_threshold);
+    if (ecmsd_s.binsize !== undefined) sv('ca_ecmsd_binsize', ecmsd_s.binsize);
+    if (ecmsd_s.rmus_threshold !== undefined) sv('ca_ecmsd_rmus', ecmsd_s.rmus_threshold);
     if (ecmsd_s.mapping_quality !== undefined) sv('ca_ecmsd_mq', ecmsd_s.mapping_quality);
     if (ecmsd_s.taxonomic_hierarchy !== undefined) sv('ca_ecmsd_taxhier', ecmsd_s.taxonomic_hierarchy);
   } else setOpt('ca_ecmsd_adv_en','ca_ecmsd_adv_body','ca_ecmsd_adv_hdr',false);
@@ -1567,7 +1567,7 @@ function resetDefaults() {
         contamination_analysis: {
           execute: true,
           tools: {
-            ecmsd: { execute: true, settings: { Binsize: 1000, RMUS_threshold: 0.15, mapping_quality: 20, taxonomic_hierarchy: 'species' } },
+            ecmsd: { execute: true, settings: { binsize: 1000, rmus_threshold: 0.15, mapping_quality: 20, taxonomic_hierarchy: 'species' } },
             centrifuge: { execute: true, settings: { include_human_taxid: true } }
           }
         },
