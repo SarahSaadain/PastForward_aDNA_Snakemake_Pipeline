@@ -11,7 +11,7 @@ import logging
 # Get expected output file paths for FastQC (raw reads)
 def get_expected_output_fastqc_raw(species):
 
-    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("quality_checking_raw", {}).get("execute", True) == False:
+    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("analysis", {}).get("settings", {}).get("quality_checking_raw", True) == False:
         logging.info(f"Skipping FastQC for raw reads for {species}. Disabled in config.")
         return []
 
@@ -29,7 +29,7 @@ def get_expected_output_fastqc_raw(species):
 # -----------------------------------------------------------------------------------------------
 # Get expected output file paths for FastQC (adapter trimmed reads)
 def get_expected_output_fastqc_trimmed(species):
-    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("quality_checking_trimmed", {}).get("execute", True) == False:
+    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("analysis", {}).get("settings", {}).get("quality_checking_trimmed", True) == False:
         logging.info(f"Skipping FastQC for trimmed reads for {species}. Disabled in config.")
         return []
 
@@ -41,7 +41,7 @@ def get_expected_output_fastqc_trimmed(species):
 # -----------------------------------------------------------------------------------------------
 # Get expected output file paths for FastQC (adapter removed reads)
 def get_expected_output_fastqc_quality_filtered(species):
-    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("quality_checking_quality_filtered", {}).get("execute", True) == False:
+    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("analysis", {}).get("settings", {}).get("quality_checking_quality_filtered", True) == False:
         logging.info(f"Skipping FastQC for quality filtered reads for {species}. Disabled in config.")
         return []
 
@@ -117,22 +117,22 @@ def get_expected_output_multiqc(species):
     expected_outputs = []
 
     # Add MultiQC reports for different read processing stages
-    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("quality_checking_raw", {}).get("execute", True) == True:
+    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("analysis", {}).get("settings", {}).get("quality_checking_raw", True) == True:
         expected_outputs.append(f"{species}/results/reads/{species}_multiqc_raw.html")
     else:
         logging.info(f"Skipping MultiQC report for raw reads for {species}. Disabled in config.")
 
-    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("quality_checking_trimmed", {}).get("execute", True) == True:
+    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("analysis", {}).get("settings", {}).get("quality_checking_trimmed", True) == True:
         expected_outputs.append(f"{species}/results/reads/{species}_multiqc_trimmed.html")
     else:
         logging.info(f"Skipping MultiQC report for trimmed reads for {species}. Disabled in config.")
 
-    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("quality_checking_quality_filtered", {}).get("execute", True) == True:
+    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("analysis", {}).get("settings", {}).get("quality_checking_quality_filtered", True) == True:
         expected_outputs.append(f"{species}/results/reads/{species}_multiqc_quality_filtered.html")
     else:
         logging.info(f"Skipping MultiQC report for quality filtered reads for {species}. Disabled in config.")
     
-    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("quality_checking_merged", {}).get("execute", True) == True:
+    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("analysis", {}).get("settings", {}).get("quality_checking_merged", True) == True:
         expected_outputs.append(f"{species}/results/reads/{species}_multiqc_merged.html")
     else:
         logging.info(f"Skipping MultiQC report for merged reads for {species}. Disabled in config.")
@@ -142,15 +142,13 @@ def get_expected_output_multiqc(species):
 # -----------------------------------------------------------------------------------------------
 # Get expected output file paths for read count plots
 def get_expected_output_reads_plots(species):
-    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("statistical_analysis", {}).get("execute", True) == False:
+    if config.get("pipeline", {}).get("raw_reads_processing", {}).get("analysis", {}).get("settings", {}).get("create_plots", True) == False:
         logging.info(f"Skipping read plots generation for {species}. Disabled in config.")
         return []
-    
-    expected_outputs = []
 
+    expected_outputs = []
     expected_outputs.append(f"{species}/results/reads/plots/{species}_read_counts.png")
     expected_outputs.append(f"{species}/results/reads/plots/{species}_read_counts_comparison_by_individual.png")
-
     return expected_outputs
 
 # -----------------------------------------------------------------------------------------------
@@ -183,7 +181,10 @@ def get_expexted_output_raw_read_processing(species):
     # Add ECMSD contamination analysis outputs
     expected_outputs += get_expected_output_contamination(species)
 
-    # Add summary plots for read count comparisons
+    # Read count statistics always run
+    expected_outputs.append(f"{species}/results/reads/statistics/{species}_reads_counts.csv")
+
+    # Summary plots (gated on analysis.settings.create_plots)
     expected_outputs += get_expected_output_reads_plots(species)
 
     return expected_outputs

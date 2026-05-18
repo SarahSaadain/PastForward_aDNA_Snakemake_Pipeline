@@ -110,7 +110,21 @@ Defines the overall pipeline behavior, including execution controls and process 
 
 ### Stage: `raw_reads_processing`
 
-Quality checking, adapter removal, quality filtering, merging, contamination analysis, and statistical analysis of raw reads.
+Quality checking, adapter removal, quality filtering, merging, contamination analysis, and read count statistics of raw reads.
+
+> **Read count statistics always run** — per-stage counts (raw → trimmed → quality-filtered) are written unconditionally as `{species}/results/reads/statistics/{species}_reads_counts.csv`.
+
+#### `analysis`
+
+Controls FastQC + MultiQC quality reports at each processing stage and read count visualisation. Individual stages are toggled via `settings`.
+
+| Setting | Default | Description |
+|---|---|---|
+| `settings.quality_checking_raw` | on | FastQC/MultiQC on raw reads. |
+| `settings.quality_checking_trimmed` | on | FastQC/MultiQC on adapter-trimmed reads. |
+| `settings.quality_checking_quality_filtered` | on | FastQC/MultiQC on quality-filtered reads. |
+| `settings.quality_checking_merged` | on | FastQC/MultiQC on merged per-individual reads. |
+| `settings.create_plots` | on | Generate read count bar plots per species. |
 
 #### `adapter_removal`
 
@@ -186,11 +200,12 @@ Optionally removes or extracts reads that did not map to the reference. Default:
 | Step | Default | Description |
 |---|---|---|
 | `damage_rescaling` | on | Profiles cytosine deamination and rescales base quality scores using mapDamage2. |
-| `damage_analysis` | on | Visualises damage patterns and generates statistics for MultiQC reporting using mapDamage2. |
-| `endogenous_reads_analysis` | on | Calculates the fraction of reads that mapped to the reference (endogenous content). |
-| `analysis` | on | Computes coverage breadth and mean depth; runs Qualimap and Preseq for library complexity. |
+| `analysis` | on | Computes coverage breadth and mean depth; runs Qualimap and Preseq. Also triggers damage visualisation and endogenous content calculation (see `settings` below). |
 | `analysis.individual` | on | Generate a per-individual BAM MultiQC report. |
 | `analysis.species` | on | Generate a per-reference MultiQC report aggregating all individuals. |
+| `analysis.settings.damage_analysis` | on | Visualises damage patterns (mapDamage2) and includes them in the MultiQC report. |
+| `analysis.settings.endogenous_reads` | on | Calculates the fraction of reads that mapped to the reference (endogenous content). |
+| `analysis.settings.create_plots` | on | Generate coverage breadth/depth and endogenous reads plots per reference. |
 
 ### Stage: `dynamics`
 
@@ -218,6 +233,7 @@ Consolidates all QC outputs into MultiQC HTML reports.
 |---|---|---|
 | `individual` | on | Generate a per-individual MultiQC summary report (all references, one individual). |
 | `species` | on | Generate a per-species MultiQC summary report (all individuals, all references). |
+| `settings` | — | Reserved for future per-report configuration options. |
 
 ### Example `config.yaml`
 
@@ -239,8 +255,14 @@ pipeline:
   raw_reads_processing:
     execute: true
 
-    quality_checking_raw:
+    analysis:
       execute: true
+      settings:
+        quality_checking_raw: true
+        quality_checking_trimmed: true
+        quality_checking_quality_filtered: true
+        quality_checking_merged: true
+        create_plots: true
 
     adapter_removal:
       execute: true
@@ -254,20 +276,11 @@ pipeline:
         # Optional: extra parameters for fastp
         #extra_params: ""
 
-    quality_checking_trimmed:
-      execute: true
-
     quality_filtering:
       execute: true
       settings:
         min_quality: 15
         min_length: 30
-
-    quality_checking_quality_filtered:
-      execute: true
-
-    quality_checking_merged:
-      execute: true
 
     contamination_analysis:
       execute: true
@@ -294,9 +307,6 @@ pipeline:
             #index: "/path/to/centrifuge_index"
             # Optional: custom conda environment for Centrifuge
             #conda_env: "../../../../envs/centrifuge.yaml"
-
-    statistical_analysis:
-      execute: true
 
   # Reference processing
   reference_processing:
@@ -328,16 +338,14 @@ pipeline:
         # Options: "remove", "extract_fastq", "extract_fasta"
         action: "remove"
 
-    damage_analysis:
-      execute: true
-
-    endogenous_reads_analysis:
-      execute: true
-
     analysis:
       execute: true
       individual: true
       species: true
+      settings:
+        damage_analysis: true
+        endogenous_reads: true
+        create_plots: true
 
   dynamics:
     execute: true
@@ -359,6 +367,7 @@ pipeline:
     execute: true
     individual: true
     species: true
+    settings: {}
 
 # Species details
 species:

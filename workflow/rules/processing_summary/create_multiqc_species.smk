@@ -54,7 +54,7 @@ def create_multiqc_species_input(wildcards):
             file_list.append(f"{species}/results/contamination_analysis/ecmsd/{individual}_Mito_summary_hits_combined.tsv")
 
         # merged reads fastqc
-        if config.get("pipeline", {}).get("reads_processing", {}).get("quality_checking_merged", {}).get("execute", True) == True:
+        if config.get("pipeline", {}).get("raw_reads_processing", {}).get("analysis", {}).get("settings", {}).get("quality_checking_merged", True) == True:
             file_list.append(f"{species}/results/reads/reads_merged/fastqc/{individual}_merged_fastqc.zip")
 
         # bam analytics

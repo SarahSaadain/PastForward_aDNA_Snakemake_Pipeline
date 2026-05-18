@@ -426,11 +426,11 @@
 
         <div id="rrp_body">
 
-          <!-- QC Raw -->
+          <!-- Quality Analysis -->
           <div class="subsection">
             <div class="subsection-header">
               <span class="sdot on" id="d_qcr"></span>
-              <span class="subsection-title">Quality Checking &mdash; Raw</span>
+              <span class="subsection-title">Quality Analysis</span>
               <label class="toggle" onclick="event.stopPropagation()">
                 <input type="checkbox" id="qcr_exec" checked onchange="dot('qcr_exec','d_qcr'); render()">
                 <span class="slider"></span>
@@ -438,9 +438,43 @@
             </div>
             <div class="step-desc">
               <span class="tool-pill">FastQC</span><span class="tool-pill">MultiQC</span>
-              Runs <strong>FastQC</strong> on raw reads to establish a baseline quality profile before any processing.
-              Results from all samples are aggregated into a per-stage <strong>MultiQC</strong> HTML report.
-              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off to save time when reprocessing data you have already assessed, or when your sequencing facility has already provided a QC report. Keep on for any new dataset to establish a quality baseline.</div>
+              Runs <strong>FastQC</strong> at each processing stage and aggregates results into a per-stage <strong>MultiQC</strong> HTML report. Individual stages can be toggled below.
+              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off individual stages to save time when reprocessing data or when a specific stage has already been assessed.</div>
+              <div class="toggle-wrap" style="margin-top:10px">
+                <label class="toggle">
+                  <input type="checkbox" id="qcr_raw" checked onchange="render()">
+                  <span class="slider"></span>
+                </label>
+                <label class="lbl" for="qcr_raw">Raw reads (FastQC before any processing)</label>
+              </div>
+              <div class="toggle-wrap" style="margin-top:6px">
+                <label class="toggle">
+                  <input type="checkbox" id="qct_exec" checked onchange="render()">
+                  <span class="slider"></span>
+                </label>
+                <label class="lbl" for="qct_exec">Adapter-trimmed reads</label>
+              </div>
+              <div class="toggle-wrap" style="margin-top:6px">
+                <label class="toggle">
+                  <input type="checkbox" id="qcqf_exec" checked onchange="render()">
+                  <span class="slider"></span>
+                </label>
+                <label class="lbl" for="qcqf_exec">Quality-filtered reads</label>
+              </div>
+              <div class="toggle-wrap" style="margin-top:6px">
+                <label class="toggle">
+                  <input type="checkbox" id="qcm_exec" checked onchange="render()">
+                  <span class="slider"></span>
+                </label>
+                <label class="lbl" for="qcm_exec">Merged per-individual reads</label>
+              </div>
+              <div class="toggle-wrap" style="margin-top:10px;border-top:1px solid #e0e0e0;padding-top:10px">
+                <label class="toggle">
+                  <input type="checkbox" id="rrp_create_plots" checked onchange="render()">
+                  <span class="slider"></span>
+                </label>
+                <label class="lbl" for="rrp_create_plots">Generate read count plots</label>
+              </div>
             </div>
           </div>
 
@@ -515,23 +549,6 @@
             </div>
           </div>
 
-          <!-- QC Trimmed -->
-          <div class="subsection">
-            <div class="subsection-header">
-              <span class="sdot on" id="d_qct"></span>
-              <span class="subsection-title">Quality Checking &mdash; Trimmed</span>
-              <label class="toggle" onclick="event.stopPropagation()">
-                <input type="checkbox" id="qct_exec" checked onchange="dot('qct_exec','d_qct'); render()">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="step-desc">
-              <span class="tool-pill">FastQC</span><span class="tool-pill">MultiQC</span>
-              FastQC on adapter-trimmed reads. Confirms that adapter removal was effective before the quality filtering step.
-              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off to save time. Useful to keep on when troubleshooting trimming issues (e.g. adapter sequences still present) or when validating a new adapter configuration on a dataset for the first time.</div>
-            </div>
-          </div>
-
           <!-- Quality Filtering -->
           <div class="subsection">
             <div class="subsection-header clickable" onclick="toggleSub(this)">
@@ -563,42 +580,6 @@
                   <p class="hint">Default: 30 bp — the standard minimum for reliable mapping. Increase for longer-fragment aDNA; decrease only if fragments are genuinely shorter (e.g. highly degraded specimens).</p>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <!-- QC Quality-Filtered -->
-          <div class="subsection">
-            <div class="subsection-header">
-              <span class="sdot on" id="d_qcqf"></span>
-              <span class="subsection-title">Quality Checking &mdash; Quality-Filtered</span>
-              <label class="toggle" onclick="event.stopPropagation()">
-                <input type="checkbox" id="qcqf_exec" checked onchange="dot('qcqf_exec','d_qcqf'); render()">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="step-desc">
-              <span class="tool-pill">FastQC</span><span class="tool-pill">MultiQC</span>
-              FastQC on quality-filtered reads. Verifies the effect of quality filtering before reads are merged per individual.
-              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off to save time on large datasets. Keep on to confirm filtering had the intended effect — particularly important after changing quality thresholds.</div>
-            </div>
-          </div>
-
-          <!-- QC Merged -->
-          <div class="subsection">
-            <div class="subsection-header">
-              <span class="sdot on" id="d_qcm"></span>
-              <span class="subsection-title">Quality Checking &mdash; Merged</span>
-              <label class="toggle" onclick="event.stopPropagation()">
-                <input type="checkbox" id="qcm_exec" checked onchange="dot('qcm_exec','d_qcm'); render()">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="step-desc">
-              <span class="tool-pill">FastQC</span><span class="tool-pill">MultiQC</span>
-              FastQC on the final per-individual merged reads. Many sequencing projects split one individual across multiple
-              lanes or runs &mdash; this step runs after all samples for the same individual have been concatenated into one FASTQ.
-              The individual identifier is everything before the first <code>_</code> in the filename.
-              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off to save time. Keep on when merging samples from multiple sequencing runs or lanes — this QC step verifies the final merged FASTQ looks as expected before committing to mapping.</div>
             </div>
           </div>
 
@@ -739,23 +720,6 @@
             </div>
           </div>
 
-          <!-- Statistical Analysis -->
-          <div class="subsection">
-            <div class="subsection-header">
-              <span class="sdot on" id="d_sa"></span>
-              <span class="subsection-title">Statistical Analysis</span>
-              <label class="toggle" onclick="event.stopPropagation()">
-                <input type="checkbox" id="sa_exec" checked onchange="dot('sa_exec','d_sa'); render()">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="step-desc">
-              Tracks <strong>read counts at each processing stage</strong> (raw &rarr; after adapter removal &rarr; after quality filtering)
-              per sample. Results are combined into a species-level summary CSV and used to generate
-              read-count bar plots as well as custom content sections inside the MultiQC reports.
-              <div class="when-hint"><span class="def-pill on">Default: ON</span>Rarely a reason to turn off. The per-stage read counts feed MultiQC and the visualisation plots — disabling it leaves those sections empty and removes the ability to see how many reads were retained through each processing step.</div>
-            </div>
-          </div>
 
         </div><!-- /#rrp_body -->
       </div>
@@ -913,44 +877,6 @@
             </div>
           </div>
 
-          <!-- Damage Analysis -->
-          <div class="subsection">
-            <div class="subsection-header">
-              <span class="sdot on" id="d_da"></span>
-              <span class="subsection-title">Damage Analysis</span>
-              <label class="toggle" onclick="event.stopPropagation()">
-                <input type="checkbox" id="da_exec" checked onchange="dot('da_exec','d_da'); render()">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="step-desc">
-              <span class="tool-pill orange">mapDamage2</span>
-              Visualises DNA damage patterns and generates statistics files for QC reporting.
-              The output directory is copied into the summary folder structure and included in the MultiQC BAM report.
-              <div class="when-hint"><span class="def-pill on">Default: ON</span>Turn off only if you have already profiled damage externally or are working with non-aDNA data. Disabling removes the damage pattern section from MultiQC reports.</div>
-            </div>
-          </div>
-
-          <!-- Endogenous Reads Analysis -->
-          <div class="subsection">
-            <div class="subsection-header">
-              <span class="sdot on" id="d_era"></span>
-              <span class="subsection-title">Endogenous Reads Analysis</span>
-              <label class="toggle" onclick="event.stopPropagation()">
-                <input type="checkbox" id="era_exec" checked onchange="dot('era_exec','d_era'); render()">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="step-desc">
-              <span class="tool-pill">samtools</span>
-              Parses <strong>samtools stats</strong> output to determine the fraction of reads that successfully mapped to
-              the reference &mdash; the <em>endogenous content</em>. Combined with raw read counts from Module 1,
-              this provides a complete picture of how much sequenced data is target-derived.
-              Results are combined into a species-level summary and included in MultiQC as a bar chart.
-              <div class="when-hint"><span class="def-pill on">Default: ON</span>Essential metric for evaluating aDNA extraction success. There is rarely a reason to turn this off — endogenous content is one of the first numbers reviewers and collaborators ask for.</div>
-            </div>
-          </div>
-
           <!-- BAM Analysis -->
           <div class="subsection">
             <div class="subsection-header">
@@ -971,6 +897,27 @@
               <strong>Preseq</strong> estimates library complexity and extrapolates sequencing yield.
               <div class="when-hint"><span class="def-pill on">Default: ON</span>Key QC metrics for aDNA — coverage breadth and depth determine whether a sample has enough data for downstream genotyping or population analysis. Turn off only if you need mapping results quickly and will assess coverage separately.</div>
               <div class="toggle-wrap" style="margin-top:10px">
+                <label class="toggle">
+                  <input type="checkbox" id="da_exec" checked onchange="render()">
+                  <span class="slider"></span>
+                </label>
+                <label class="lbl" for="da_exec">Damage analysis <span style="font-size:.7rem;color:var(--text-muted)">(mapDamage2 — damage visualisation &amp; statistics)</span></label>
+              </div>
+              <div class="toggle-wrap" style="margin-top:6px">
+                <label class="toggle">
+                  <input type="checkbox" id="era_exec" checked onchange="render()">
+                  <span class="slider"></span>
+                </label>
+                <label class="lbl" for="era_exec">Endogenous reads <span style="font-size:.7rem;color:var(--text-muted)">(samtools stats — fraction mapped)</span></label>
+              </div>
+              <div class="toggle-wrap" style="margin-top:6px">
+                <label class="toggle">
+                  <input type="checkbox" id="rp_create_plots" checked onchange="render()">
+                  <span class="slider"></span>
+                </label>
+                <label class="lbl" for="rp_create_plots">Generate coverage &amp; endogenous reads plots</label>
+              </div>
+              <div class="toggle-wrap" style="margin-top:10px;border-top:1px solid #e0e0e0;padding-top:10px">
                 <label class="toggle">
                   <input type="checkbox" id="cov_individual" checked onchange="render()">
                   <span class="slider"></span>
@@ -1274,8 +1221,14 @@ function buildYAML() {
   p(2, 'raw_reads_processing:');
   kv(4, 'execute', gb('rrp_exec'));
   p(0, '');
-  p(4, 'quality_checking_raw:');
+  p(4, 'analysis:');
   kv(6, 'execute', gb('qcr_exec'));
+  p(6, 'settings:');
+  kv(8, 'quality_checking_raw', gb('qcr_raw'));
+  kv(8, 'quality_checking_trimmed', gb('qct_exec'));
+  kv(8, 'quality_checking_quality_filtered', gb('qcqf_exec'));
+  kv(8, 'quality_checking_merged', gb('qcm_exec'));
+  kv(8, 'create_plots', gb('rrp_create_plots'));
   p(0, '');
   p(4, 'adapter_removal:');
   kv(6, 'execute', gb('ar_exec'));
@@ -1289,20 +1242,11 @@ function buildYAML() {
   }
   if (gb('ar_xp_en') && gv('ar_xp').trim()) kv(8, 'extra_params', gv('ar_xp'));
   p(0, '');
-  p(4, 'quality_checking_trimmed:');
-  kv(6, 'execute', gb('qct_exec'));
-  p(0, '');
   p(4, 'quality_filtering:');
   kv(6, 'execute', gb('qf_exec'));
   p(6, 'settings:');
   kv(8, 'min_quality', gn('qf_minq'));
   kv(8, 'min_length',  gn('qf_minl'));
-  p(0, '');
-  p(4, 'quality_checking_quality_filtered:');
-  kv(6, 'execute', gb('qcqf_exec'));
-  p(0, '');
-  p(4, 'quality_checking_merged:');
-  kv(6, 'execute', gb('qcm_exec'));
   p(0, '');
   p(4, 'contamination_analysis:');
   kv(6, 'execute', gb('ca_exec'));
@@ -1325,9 +1269,6 @@ function buildYAML() {
   kv(12, 'include_human_taxid', gb('ca_human'));
   if (gb('ca_conda_en') && gv('ca_conda').trim()) kv(12, 'conda_env', gv('ca_conda'));
   if (gb('ca_idx_en')   && gv('ca_idx').trim())   kv(12, 'index',     gv('ca_idx'));
-  p(0, '');
-  p(4, 'statistical_analysis:');
-  kv(6, 'execute', gb('sa_exec'));
   p(0, '');
   p(2, '# Reference processing');
   p(2, 'reference_processing:');
@@ -1352,16 +1293,14 @@ function buildYAML() {
   p(6, 'settings:');
   kv(8, 'action', gv('fur_action'));
   p(0, '');
-  p(4, 'damage_analysis:');
-  kv(6, 'execute', gb('da_exec'));
-  p(0, '');
-  p(4, 'endogenous_reads_analysis:');
-  kv(6, 'execute', gb('era_exec'));
-  p(0, '');
   p(4, 'analysis:');
   kv(6, 'execute', gb('cov_exec'));
   kv(6, 'individual', gb('cov_individual'));
   kv(6, 'species', gb('cov_species'));
+  p(6, 'settings:');
+  kv(8, 'damage_analysis', gb('da_exec'));
+  kv(8, 'endogenous_reads', gb('era_exec'));
+  kv(8, 'create_plots', gb('rp_create_plots'));
   p(0, ''); p(0, '');
   p(2, 'dynamics:');
   kv(4, 'execute', gb('dyn_exec'));
@@ -1381,6 +1320,7 @@ function buildYAML() {
   kv(4, 'execute', gb('sp_exec'));
   kv(4, 'individual', gb('sp_individual'));
   kv(4, 'species', gb('sp_species'));
+  p(4, 'settings: {}');
   p(0, '');
   p(0, '# Species-specific settings');
   p(0, 'species:');
@@ -1522,7 +1462,13 @@ function populateForm(c) {
 
   sb('rrp_exec',  rrp.execute);
   toggleStage('rrp_body', document.getElementById('rrp_exec'));
-  sb('qcr_exec',  (rrp.quality_checking_raw||{}).execute);   dot('qcr_exec','d_qcr');
+  const rrpa = rrp.analysis || {}; const rrpas = rrpa.settings || {};
+  sb('qcr_exec',  rrpa.execute);                                                dot('qcr_exec','d_qcr');
+  sb('qcr_raw',   rrpas.quality_checking_raw);
+  sb('qct_exec',  rrpas.quality_checking_trimmed);
+  sb('qcqf_exec', rrpas.quality_checking_quality_filtered);
+  sb('qcm_exec',         rrpas.quality_checking_merged);
+  sb('rrp_create_plots', rrpas.create_plots);
   const ar = rrp.adapter_removal || {};
   const ars = ar.settings || {};
   sb('ar_exec', ar.execute); dot('ar_exec','d_ar');
@@ -1533,12 +1479,9 @@ function populateForm(c) {
   } else setOpt('ar_adp_en','ar_adp_body','ar_adp_hdr', false);
   if (ars.extra_params !== undefined) { setOpt('ar_xp_en','ar_xp_body','ar_xp_hdr',true); sv('ar_xp',ars.extra_params); }
   else setOpt('ar_xp_en','ar_xp_body','ar_xp_hdr',false);
-  sb('qct_exec',  (rrp.quality_checking_trimmed||{}).execute);             dot('qct_exec','d_qct');
   const qf = rrp.quality_filtering || {};
   sb('qf_exec', qf.execute); dot('qf_exec','d_qf');
   sv('qf_minq',(qf.settings||{}).min_quality); sv('qf_minl',(qf.settings||{}).min_length);
-  sb('qcqf_exec',(rrp.quality_checking_quality_filtered||{}).execute);    dot('qcqf_exec','d_qcqf');
-  sb('qcm_exec', (rrp.quality_checking_merged||{}).execute);               dot('qcm_exec','d_qcm');
   const ca = rrp.contamination_analysis || {};
   const cat = ca.tools || {};
   const cen = cat.centrifuge || {};
@@ -1562,7 +1505,6 @@ function populateForm(c) {
   else setOpt('ca_conda_en','ca_conda_body','ca_conda_hdr',false);
   if (ces.index !== undefined) { setOpt('ca_idx_en','ca_idx_body','ca_idx_hdr',true); sv('ca_idx',ces.index); }
   else setOpt('ca_idx_en','ca_idx_body','ca_idx_hdr',false);
-  sb('sa_exec', (rrp.statistical_analysis||{}).execute); dot('sa_exec','d_sa');
 
   sb('rp_exec', rp.execute);
   toggleStage('rp_body', document.getElementById('rp_exec'));
@@ -1578,8 +1520,10 @@ function populateForm(c) {
   const fur = rp.filter_unmapped_reads||{};
   sb('fur_exec', fur.execute); dot('fur_exec','d_fur');
   sv('fur_action', (fur.settings||{}).action);
-  sb('da_exec',  (rp.damage_analysis||{}).execute);               dot('da_exec','d_da');
-  sb('era_exec', (rp.endogenous_reads_analysis||{}).execute);     dot('era_exec','d_era');
+  const rpas = (rp.analysis||{}).settings||{};
+  sb('da_exec',        rpas.damage_analysis);
+  sb('era_exec',       rpas.endogenous_reads);
+  sb('rp_create_plots',rpas.create_plots);
   sb('cov_exec',      (rp.analysis||{}).execute);                  dot('cov_exec','d_cov');
   sb('cov_individual',(rp.analysis||{}).individual);
   sb('cov_species',   (rp.analysis||{}).species);
@@ -1624,12 +1568,9 @@ function resetDefaults() {
       global: { skip_existing_files: true },
       raw_reads_processing: {
         execute: true,
-        quality_checking_raw: { execute: true },
+        analysis: { execute: true, settings: { quality_checking_raw: true, quality_checking_trimmed: true, quality_checking_quality_filtered: true, quality_checking_merged: true, create_plots: true } },
         adapter_removal: { execute: true, settings: { min_quality: 0, min_length: 0 } },
-        quality_checking_trimmed: { execute: true },
         quality_filtering: { execute: true, settings: { min_quality: 15, min_length: 30 } },
-        quality_checking_quality_filtered: { execute: true },
-        quality_checking_merged: { execute: true },
         contamination_analysis: {
           execute: true,
           tools: {
@@ -1637,7 +1578,6 @@ function resetDefaults() {
             centrifuge: { execute: true, settings: { include_human_taxid: true } }
           }
         },
-        statistical_analysis: { execute: true }
       },
       reference_processing: {
         execute: true,
@@ -1645,9 +1585,7 @@ function resetDefaults() {
         deduplication: { execute: false, settings: { min_contigs_per_cluster: 10, max_contigs_per_cluster: 500 } },
         damage_rescaling: { execute: true },
         filter_unmapped_reads: { execute: false, settings: { action: 'remove' } },
-        damage_analysis: { execute: true },
-        endogenous_reads_analysis: { execute: true },
-        analysis: { execute: true, individual: true, species: true }
+        analysis: { execute: true, individual: true, species: true, settings: { damage_analysis: true, endogenous_reads: true, create_plots: true } }
       },
       dynamics: {
         execute: true,

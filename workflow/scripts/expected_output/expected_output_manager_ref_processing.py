@@ -25,22 +25,17 @@ def get_expected_output_reference_processing(species):
 
     for reference in references_list:
 
-        if config.get("pipeline", {}).get("reference_processing", {}).get("endogenous_reads_analysis", {}).get("execute", True) == True:
-            # Add endogenous and coverage plots for each reference and individual
-            expected_outputs.append(f"{species}/results/{reference}/plots/endogenous_reads/{species}_{reference}_endogenous_reads_bar_chart.png")
-            expected_outputs.append(f"{species}/results/{reference}/plots/endogenous_reads/{species}_{reference}_raw_and_endogenous_reads_bar_chart.png")
+        if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("settings", {}).get("create_plots", True) == True:
+            if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("settings", {}).get("endogenous_reads", True) == True:
+                expected_outputs.append(f"{species}/results/{reference}/plots/endogenous_reads/{species}_{reference}_endogenous_reads_bar_chart.png")
+                expected_outputs.append(f"{species}/results/{reference}/plots/endogenous_reads/{species}_{reference}_raw_and_endogenous_reads_bar_chart.png")
+            if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("execute", True) == True:
+                expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_depth_coverage_violin.png")
+                expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_depth_coverage_bar.png")
+                expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_coverage_breadth_bar.png")
+                expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_coverage_breadth_violin.png")
         else:
-            logging.info(f"Skipping endogenous reads analysis for species {species} and reference {reference}. Disabled in config.")
-        
-        if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("execute", True) == True:
-            expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_depth_coverage_violin.png")
-            expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_depth_coverage_bar.png")
-            expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_coverage_breadth_bar.png")
-            expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_coverage_breadth_violin.png")
-        else:
-            logging.info(f"Skipping coverage analysis for species {species} and reference {reference}. Disabled in config.")
-
-        expected_outputs.append(f"{species}/results/{reference}/analytics/{species}_{reference}_multiqc.html")
+            logging.info(f"Skipping plots for species {species} and reference {reference}. Disabled in config.")
 
         if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("species", True) == True:
             expected_outputs.append(f"{species}/results/{reference}/analytics/{species}_{reference}_multiqc.html")
@@ -53,7 +48,7 @@ def get_expected_output_reference_processing(species):
             if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("individual", True) == True:
                 expected_outputs.append(f"{species}/results/{reference}/analytics/{individual}_{reference}_multiqc.html")
 
-            if config.get("pipeline", {}).get("reference_processing", {}).get("damage_analysis", {}).get("execute", True) == True:
+            if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("settings", {}).get("damage_analysis", True) == True:
                 expected_outputs.append(f"{species}/results/{reference}/analytics/{individual}/mapdamage/")
             else:
                 logging.info(f"Skipping damage analysis for species {species} and individual {individual} to reference {reference}. Disabled in config.")

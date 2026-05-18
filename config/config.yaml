@@ -21,12 +21,6 @@ pipeline:
     # When true, this stage will be executed. (Default: true)
     execute: true
 
-    # Sub-stages with their respective settings
-    # Quality checking of raw reads
-    quality_checking_raw:
-      # When true, this sub-stage will be executed (Default: true)
-      execute: true
-    
     # Adapter removal from raw reads
     adapter_removal:
       # When true, this sub-stage will be executed (Default: true)
@@ -48,11 +42,6 @@ pipeline:
         # Optional: Extra parameters for adapter removal (Default: "")
         #extra_params: ""
     
-    # Quality checking of trimmed reads
-    quality_checking_trimmed:
-      # When true, this sub-stage will be executed (Default: true)
-      execute: true
-
     # Quality filtering of trimmed reads
     quality_filtering:
       # When true, this sub-stage will be executed (Default: true)
@@ -62,16 +51,6 @@ pipeline:
         min_quality: 15
         # Minimum length of reads after quality filtering
         min_length: 30
-
-    # Quality checking of quality-filtered reads
-    quality_checking_quality_filtered:
-      # When true, this sub-stage will be executed (Default: true)
-      execute: true
-
-    # Quality checking of merged reads
-    quality_checking_merged:
-      # When true, this sub-stage will be executed (Default: true)
-      execute: true
 
     # Contamination analysis
     contamination_analysis:
@@ -95,10 +74,22 @@ pipeline:
             # Path to the Centrifuge index. If not provided, the default index will be downloaded and used
             # index: "/path/to/centrifuge_index"
     
-    # Statistical analysis
-    statistical_analysis:
-      # When true, this sub-stage will be executed (Default: true)
+    # Sub-stages with their respective settings
+    # Quality analysis (FastQC + MultiQC at each processing stage)
+    analysis:
+      # When true, quality checking will run (Default: true)
       execute: true
+      settings:
+        # Run FastQC/MultiQC on raw reads (Default: true)
+        quality_checking_raw: true
+        # Run FastQC/MultiQC on adapter-trimmed reads (Default: true)
+        quality_checking_trimmed: true
+        # Run FastQC/MultiQC on quality-filtered reads (Default: true)
+        quality_checking_quality_filtered: true
+        # Run FastQC/MultiQC on merged per-individual reads (Default: true)
+        quality_checking_merged: true
+        # When true, generate read count bar plots (Default: true)
+        create_plots: true
 
   # Reference processing
   reference_processing:
@@ -143,17 +134,7 @@ pipeline:
         #   "extract_fasta" — write unmapped reads to a compressed FASTA ({individual}_{reference}_unmapped.fasta.gz)
         action: "remove"
 
-    # Damage analysis settings for mapDamage2
-    damage_analysis:
-      # When true, this sub-stage will be executed (Default: true)
-      execute: true
-
-    # Endogenous reads analysis settings
-    endogenous_reads_analysis: 
-      # When true, this sub-stage will be executed (Default: true)
-      execute: true
-
-    # BAM analysis settings (coverage, Qualimap, Preseq)
+    # BAM analysis settings (coverage, Qualimap, Preseq, damage, endogenous reads)
     analysis:
       # When true, this sub-stage will be executed (Default: true)
       execute: true
@@ -161,6 +142,13 @@ pipeline:
       individual: true
       # When true, generate a per-reference MultiQC report across all individuals (Default: true)
       species: true
+      settings:
+        # Run mapDamage2 damage visualisation and statistics (Default: true)
+        damage_analysis: true
+        # Calculate fraction of reads that mapped — endogenous content (Default: true)
+        endogenous_reads: true
+        # When true, generate coverage and endogenous reads plots (Default: true)
+        create_plots: true
 
 
   dynamics:
@@ -200,6 +188,7 @@ pipeline:
     individual: true
     # When true, generate a per-species MultiQC summary report (Default: true)
     species: true
+    settings: {}
 
 # Species-specific settings
 species:
