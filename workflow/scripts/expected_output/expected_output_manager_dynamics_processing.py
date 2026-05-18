@@ -62,7 +62,7 @@ def get_expected_output_dynamics_processing(species):
                 elif individual_plots_mode == "plotable_only":
                     all_inputs.append(f"{species}/results/dynamics/{feature_library}/seqvista/individual_level/{individual}_plotable.tar.gz")
     
-        if config.get("pipeline", {}).get("dynamics", {}).get("pf_normalization", {}).get("execute", True) == True:
+        if config.get("pipeline", {}).get("dynamics", {}).get("pf_normalization", {}).get("execute", False) == True:
             
             all_inputs.append(f"{species}/results/dynamics/{feature_library}/normalization/plots/")
             all_inputs.append(f"{species}/results/dynamics/{feature_library}/normalization/{species}_normalized_coverage.combined.tsv")

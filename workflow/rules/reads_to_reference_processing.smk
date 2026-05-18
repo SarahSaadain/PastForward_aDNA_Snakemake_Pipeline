@@ -37,6 +37,9 @@ include: "reads_to_reference/analytics/analyze_bam_with_preseq_lc_extrap.smk"
 #create_multiqc_bam.smk
 include: "reads_to_reference/analytics/create_multiqc_bam.smk"
 
+# create_multiqc_reference.smk
+include: "reads_to_reference/analytics/create_multiqc_reference.smk"
+
 # Calculate endogenous reads
 include: "reads_to_reference/analytics/determine_endogenous_reads.smk"
 

@@ -32,7 +32,7 @@ def get_expected_output_reference_processing(species):
         else:
             logging.info(f"Skipping endogenous reads analysis for species {species} and reference {reference}. Disabled in config.")
         
-        if config.get("pipeline", {}).get("reference_processing", {}).get("coverage_analysis", {}).get("execute", True) == True:
+        if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("execute", True) == True:
             expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_depth_coverage_violin.png")
             expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_depth_coverage_bar.png")
             expected_outputs.append(f"{species}/results/{reference}/plots/coverage/{species}_{reference}_individual_coverage_breadth_bar.png")
@@ -40,14 +40,18 @@ def get_expected_output_reference_processing(species):
         else:
             logging.info(f"Skipping coverage analysis for species {species} and reference {reference}. Disabled in config.")
 
-        #expected_outputs.append(f"{species}/results/{reference_id}/multiqc.html")
+        expected_outputs.append(f"{species}/results/{reference}/analytics/{species}_{reference}_multiqc.html")
+
+        if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("species", True) == True:
+            expected_outputs.append(f"{species}/results/{reference}/analytics/{species}_{reference}_multiqc.html")
 
         for individual in individuals:
-            
+
             expected_outputs.append(f"{species}/processed/{reference}/mapped/{individual}_{reference}_final.bam")
             expected_outputs.append(f"{species}/processed/{reference}/mapped/{individual}_{reference}_final.bam.bai")
 
-            expected_outputs.append(f"{species}/results/{reference}/analytics/{individual}_{reference}_multiqc.html")
+            if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("individual", True) == True:
+                expected_outputs.append(f"{species}/results/{reference}/analytics/{individual}_{reference}_multiqc.html")
 
             if config.get("pipeline", {}).get("reference_processing", {}).get("damage_analysis", {}).get("execute", True) == True:
                 expected_outputs.append(f"{species}/results/{reference}/analytics/{individual}/mapdamage/")

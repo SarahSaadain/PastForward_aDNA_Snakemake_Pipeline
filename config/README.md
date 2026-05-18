@@ -188,7 +188,9 @@ Optionally removes or extracts reads that did not map to the reference. Default:
 | `damage_rescaling` | on | Profiles cytosine deamination and rescales base quality scores using mapDamage2. |
 | `damage_analysis` | on | Visualises damage patterns and generates statistics for MultiQC reporting using mapDamage2. |
 | `endogenous_reads_analysis` | on | Calculates the fraction of reads that mapped to the reference (endogenous content). |
-| `coverage_analysis` | on | Computes coverage breadth and mean depth; runs Qualimap and Preseq for library complexity. |
+| `analysis` | on | Computes coverage breadth and mean depth; runs Qualimap and Preseq for library complexity. |
+| `analysis.individual` | on | Generate a per-individual BAM MultiQC report. |
+| `analysis.species` | on | Generate a per-reference MultiQC report aggregating all individuals. |
 
 ### Stage: `dynamics`
 
@@ -210,7 +212,12 @@ TE and genomic feature abundance analysis — maps to a combined SCG + feature l
 
 ### Stage: `summary_processing`
 
-Consolidates all QC outputs into MultiQC HTML reports — one per individual and one per species.
+Consolidates all QC outputs into MultiQC HTML reports.
+
+| Setting | Default | Description |
+|---|---|---|
+| `individual` | on | Generate a per-individual MultiQC summary report (all references, one individual). |
+| `species` | on | Generate a per-species MultiQC summary report (all individuals, all references). |
 
 ### Example `config.yaml`
 
@@ -327,8 +334,10 @@ pipeline:
     endogenous_reads_analysis:
       execute: true
 
-    coverage_analysis:
+    analysis:
       execute: true
+      individual: true
+      species: true
 
   dynamics:
     execute: true
@@ -348,6 +357,8 @@ pipeline:
 
   summary_processing:
     execute: true
+    individual: true
+    species: true
 
 # Species details
 species:

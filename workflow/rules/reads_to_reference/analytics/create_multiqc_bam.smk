@@ -50,7 +50,7 @@ def create_multiqc_bam_individual_input(wildcards):
     if config.get("pipeline", {}).get("reads_processing", {}).get("quality_checking_merged", {}).get("execute", True) == True:
         file_list.append(f"{species}/results/reads/reads_merged/fastqc/{individual}_merged_fastqc.zip")
 
-    if config.get("pipeline", {}).get("reference_processing", {}).get("coverage_analysis", {}).get("execute", True) == True:
+    if config.get("pipeline", {}).get("reference_processing", {}).get("analysis", {}).get("execute", True) == True:
         #file_list.append(f"{species}/results/{reference}/analytics/{individual}/preseq/{individual}_{reference}.lc_extrap")
         file_list.append(f"{species}/results/{reference}/analytics/{individual}/preseq/{individual}_{reference}.c_curve.txt")
         file_list.append(directory(f"{species}/results/{reference}/analytics/{individual}/qualimap"))

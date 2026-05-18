@@ -951,11 +951,11 @@
             </div>
           </div>
 
-          <!-- Coverage Analysis -->
+          <!-- BAM Analysis -->
           <div class="subsection">
             <div class="subsection-header">
               <span class="sdot on" id="d_cov"></span>
-              <span class="subsection-title">Coverage Analysis</span>
+              <span class="subsection-title">BAM Analysis</span>
               <label class="toggle" onclick="event.stopPropagation()">
                 <input type="checkbox" id="cov_exec" checked onchange="dot('cov_exec','d_cov'); render()">
                 <span class="slider"></span>
@@ -970,6 +970,20 @@
               Additionally: <strong>Qualimap bamqc</strong> produces an HTML QC report (mapping rate, coverage uniformity, GC content, insert size).
               <strong>Preseq</strong> estimates library complexity and extrapolates sequencing yield.
               <div class="when-hint"><span class="def-pill on">Default: ON</span>Key QC metrics for aDNA — coverage breadth and depth determine whether a sample has enough data for downstream genotyping or population analysis. Turn off only if you need mapping results quickly and will assess coverage separately.</div>
+              <div class="toggle-wrap" style="margin-top:10px">
+                <label class="toggle">
+                  <input type="checkbox" id="cov_individual" checked onchange="render()">
+                  <span class="slider"></span>
+                </label>
+                <label class="lbl" for="cov_individual">Per-individual BAM MultiQC report</label>
+              </div>
+              <div class="toggle-wrap" style="margin-top:6px">
+                <label class="toggle">
+                  <input type="checkbox" id="cov_species" checked onchange="render()">
+                  <span class="slider"></span>
+                </label>
+                <label class="lbl" for="cov_species">Per-reference MultiQC report (all individuals)</label>
+              </div>
             </div>
           </div>
 
@@ -1135,6 +1149,20 @@
           keeping the report self-consistent. Qualimap and mapDamage2 output directories are copied into the
           summary folder structure before report generation.
         </p>
+        <div class="toggle-wrap" style="margin-top:10px">
+          <label class="toggle">
+            <input type="checkbox" id="sp_individual" checked onchange="render()">
+            <span class="slider"></span>
+          </label>
+          <label class="lbl" for="sp_individual">Per-individual MultiQC summary report</label>
+        </div>
+        <div class="toggle-wrap" style="margin-top:6px">
+          <label class="toggle">
+            <input type="checkbox" id="sp_species" checked onchange="render()">
+            <span class="slider"></span>
+          </label>
+          <label class="lbl" for="sp_species">Per-species MultiQC summary report (all individuals)</label>
+        </div>
       </div>
     </div>
 
@@ -1330,8 +1358,10 @@ function buildYAML() {
   p(4, 'endogenous_reads_analysis:');
   kv(6, 'execute', gb('era_exec'));
   p(0, '');
-  p(4, 'coverage_analysis:');
+  p(4, 'analysis:');
   kv(6, 'execute', gb('cov_exec'));
+  kv(6, 'individual', gb('cov_individual'));
+  kv(6, 'species', gb('cov_species'));
   p(0, ''); p(0, '');
   p(2, 'dynamics:');
   kv(4, 'execute', gb('dyn_exec'));
@@ -1349,6 +1379,8 @@ function buildYAML() {
   p(0, '');
   p(2, 'summary_processing:');
   kv(4, 'execute', gb('sp_exec'));
+  kv(4, 'individual', gb('sp_individual'));
+  kv(4, 'species', gb('sp_species'));
   p(0, '');
   p(0, '# Species-specific settings');
   p(0, 'species:');
@@ -1548,7 +1580,9 @@ function populateForm(c) {
   sv('fur_action', (fur.settings||{}).action);
   sb('da_exec',  (rp.damage_analysis||{}).execute);               dot('da_exec','d_da');
   sb('era_exec', (rp.endogenous_reads_analysis||{}).execute);     dot('era_exec','d_era');
-  sb('cov_exec', (rp.coverage_analysis||{}).execute);             dot('cov_exec','d_cov');
+  sb('cov_exec',      (rp.analysis||{}).execute);                  dot('cov_exec','d_cov');
+  sb('cov_individual',(rp.analysis||{}).individual);
+  sb('cov_species',   (rp.analysis||{}).species);
 
   sb('dyn_exec', dyn.execute);
   toggleStage('dyn_body', document.getElementById('dyn_exec'));
@@ -1561,7 +1595,9 @@ function populateForm(c) {
   sv('sv_individual_plots', svs.individual_plots || 'plot');
   sv('sv_comparison_plots', svs.comparison_plots || 'plot');
   sb('pfn_exec', (dyn.pf_normalization||{}).execute);             dot('pfn_exec','d_pfn');
-  sb('sp_exec',  sp.execute);
+  sb('sp_exec',       sp.execute);
+  sb('sp_individual', sp.individual);
+  sb('sp_species',    sp.species);
 
   document.getElementById('species-list').innerHTML = '';
   speciesSeq = 0;
@@ -1611,7 +1647,7 @@ function resetDefaults() {
         filter_unmapped_reads: { execute: false, settings: { action: 'remove' } },
         damage_analysis: { execute: true },
         endogenous_reads_analysis: { execute: true },
-        coverage_analysis: { execute: true }
+        analysis: { execute: true, individual: true, species: true }
       },
       dynamics: {
         execute: true,
@@ -1619,7 +1655,7 @@ function resetDefaults() {
         seqvista: { execute: true, settings: { individual_plots: 'plot', comparison_plots: 'plot' } },
         pf_normalization: { execute: true }
       },
-      summary_processing: { execute: true }
+      summary_processing: { execute: true, individual: true, species: true }
     },
     species: { demo: { name: 'Dmel Demo' } }
   });
